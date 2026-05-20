@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>高颜值极简待办</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>const { ipcRenderer } = require('electron');</script>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100vw; height: 100vh;
+            background: transparent !important; overflow: hidden;
+            font-family: "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #ffffff; user-select: none;
+        }
+
+        .flip-container { width: 100%; height: 100%; perspective: 1200px; }
+        .widget-flipper {
+            width: 100%; height: 100%; position: relative;
+            transition: opacity 0.3s ease;
+        }
+
+        .flip-container.hide-flipper .widget-flipper .header,
+        .flip-container.hide-flipper .widget-flipper .input-container,
+        .flip-container.hide-flipper .widget-flipper .list-container,
+        .flip-container.hide-flipper .widget-flipper .word-footer,
+        .flip-container.hide-flipper .widget-flipper .note-wrapper,
+        .flip-container.hide-flipper .widget-flipper .focus-overlay { 
+            opacity: 0 !important; 
+            pointer-events: none !important; 
+            transition: opacity 0.3s ease;
+        }
+
+        .widget-front, .widget-back {
+            width: 100%; height: 100%; position: absolute; top: 0; left: 0;
+            background: rgba(15, 25, 20, 0.25); 
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 16px; 
+            box-sizing: border-box; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            display: flex; flex-direction: column; 
+            transition: opacity 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            will-change: transform, opacity;
+        }
+        
+        .widget-front { transform: rotateY(0deg); z-index: 2; opacity: 1; }
+        .widget-back { transform: rotateY(-180deg); z-index: 1; opacity: 0; pointer-events: none; }
+        
+        .flip-container.flipped .widget-front { transform: rotateY(180deg); opacity: 0; pointer-events: none; z-index: 1; }
+        .flip-container.flipped .widget-back { transform: rotateY(0deg); opacity: 1; pointer-events: auto; z-index: 2; }
+
+        .focus-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 10, 15, 0.65); border-radius: inherit;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8); opacity: 0; pointer-events: none; 
+            transition: opacity 0.8s ease; z-index: 5;
+        }
+        body.pomodoro-active .focus-overlay { opacity: 1; }
+        .header, .input-container, .list-container, .word-footer, .note-wrapper { position: relative; z-index: 10; }
+
+        .glare-effect { position: relative; overflow: hidden; border-radius: inherit; }
+        .glare-effect::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(90px circle at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.18), transparent 100%);
+            opacity: 0; transition: opacity 0.3s ease; pointer-events: none; z-index: 1;
+        }
+        .glare-effect:hover::before { opacity: 1; }
+        .glare-effect > * { position: relative; z-index: 2; } 
+
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 6px; position: relative; }
+        .header-left { display: flex; align-items: flex-start; flex: 1; min-width: 0; position: relative; z-index: 20; }
+        
+        .header-right { 
+            display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 2px; 
+            opacity: 0; visibility: hidden; transition: all 0.3s ease-in-out; position: relative; z-index: 20;
+        }
+        .header:hover .header-right { opacity: 1; visibility: visible; }
+
+        .title-group { display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; width: 100%; gap: 6px; }
+        .title-wrapper { display: flex; align-items: center; gap: 8px; width: 100%; }
+        
+        .progress-wrapper { cursor: pointer; transition: all 0.2s; position: relative; z-index: 30; pointer-events: auto; display: flex; align-items: center; justify-content: center;}
+        .progress-wrapper:hover { transform: scale(1.15); filter: drop-shadow(0 0 5px rgba(74, 222, 128, 0.5)); }
+        .progress-wrapper:active { transform: scale(0.9); }
+        .progress-ring { transform: rotate(-90deg); flex-shrink: 0; }
+        .ring-progress { transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        .title {
+            width: 100%; background: transparent; border: none; color: #ffffff; font-size: 20px; font-weight: bold; 
+            letter-spacing: 0.5px; padding: 2px 0px; margin: 0;
+            border-radius: 6px; outline: none; transition: background 0.2s; font-family: inherit;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; 
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 2px 10px rgba(0, 0, 0, 0.45);
+        }
+
+        .pill-style {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px; padding: 4px 10px; transition: all 0.2s ease;
+            width: fit-content; max-width: 100%; box-sizing: border-box; cursor: pointer; pointer-events: auto; 
+        }
+        .pill-style:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.3); }
+        .pill-style:active { transform: scale(0.96); }
+        body.pomodoro-active .pill-style { background: rgba(255, 82, 82, 0.15); border-color: rgba(255, 82, 82, 0.3); }
+
+        .lunar-text { font-size: 12px; color: rgba(255, 255, 255, 0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .countdown-text { font-size: 11px; color: #4ade80; font-weight: 600; flex-shrink: 0; transition: color 0.3s; letter-spacing: 0.5px;}
+        .hidden-date-input { position: absolute !important; bottom: 0 !important; left: 0 !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; }
+
+        .icon-btn {
+            display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08); color: white; cursor: pointer; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s; 
+            font-size: 16px; 
+            will-change: transform;
+        }
+        .icon-btn:hover { 
+            background: rgba(255, 255, 255, 0.18); 
+            transform: translateY(-1.5px) scale3d(1.08, 1.08, 1); 
+        }
+        .icon-btn:active { 
+            transform: scale3d(0.9, 0.9, 1); 
+            opacity: 0.8; 
+        }
+        .icon-btn.pinned-active, .icon-btn.pomodoro-running { 
+            background: rgba(255, 255, 255, 0.25); color: #4ade80; 
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.3); 
+        }
+
+        .input-container { overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-height: 0; opacity: 0; margin-bottom: 0; transform: translateY(-5px); }
+        .input-container.show { max-height: 50px; opacity: 1; margin-bottom: 12px; transform: translateY(0); }
+        .task-input {
+            width: 100%; background: rgba(255, 255, 255, 0.95); border: none; padding: 10px 12px; border-radius: 10px; 
+            font-size: 14px; font-weight: 500; color: #1a2f22; box-sizing: border-box; outline: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .list-container { flex: 1; overflow-y: auto; overflow-x: hidden; padding-right: 6px; margin-right: -6px; margin-bottom: 12px; position: relative; }
+        .list-container::-webkit-scrollbar { width: 4px; }
+        .list-container::-webkit-scrollbar-track { background: transparent; }
+        .list-container::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        
+        .task-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; position: relative;}
+        .task-item { display: flex; align-items: center; padding: 12px 10px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; transition: background 0.2s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s; position: relative; cursor: default; }
+        .task-item:hover { background: rgba(255, 255, 255, 0.1); }
+        
+        .task-item.dragging { opacity: 0.3 !important; transform: scale(0.98); box-shadow: none; z-index: 100; cursor: grabbing !important; border: 1px dashed rgba(255,255,255,0.6); background: rgba(255,255,255,0.02); transition: none; }
+
+        .empty-state { position: absolute; top: 40%; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.4); font-size: 13px; letter-spacing: 1px; animation: fadeIn 0.8s ease; pointer-events: none; }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+        @keyframes jellyPop { 0% { transform: scale(1); opacity: 1; filter: blur(0px); } 40% { transform: scale(1.08); opacity: 1; filter: blur(0px); background: rgba(74, 222, 128, 0.2); } 100% { transform: scale(0.8) translateY(10px) translateX(10px); opacity: 0; filter: blur(4px); } }
+        .jelly-pop { animation: jellyPop 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards !important; pointer-events: none; }
+        @keyframes taskRinging { 0% { box-shadow: 0 0 0px rgba(255, 82, 82, 0); border: 1px solid transparent; } 50% { box-shadow: 0 0 15px rgba(255, 82, 82, 0.6); border: 1px solid rgba(255, 82, 82, 0.4); } 100% { box-shadow: 0 0 0px rgba(255, 82, 82, 0); border: 1px solid transparent; } }
+        
+        .task-ringing { animation: taskRinging 2s infinite ease-in-out; background: rgba(255, 82, 82, 0.15) !important; }
+        .task-progress { position: absolute; bottom: 0; left: 0; height: 2px; border-radius: 0 0 0 12px; transition: width 1s linear; }
+
+        .checkbox-wrapper { position: relative; width: 22px; height: 22px; margin-right: 12px; flex-shrink: 0; cursor: pointer; }
+        .checkbox { 
+            width: 18px; height: 18px; position: absolute; top: 2px; left: 2px; 
+            border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 5px; box-sizing: border-box; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s, background-color 0.2s; 
+            display: flex; justify-content: center; align-items: center; 
+        }
+        .checkbox-wrapper:hover .checkbox { transform: scale3d(1.1, 1.1, 1); border-color: #ffffff; } 
+        .checkbox-wrapper:active .checkbox { transform: scale3d(0.85, 0.85, 1); } 
+        .task-item.completed .checkbox { background: #ffffff; border-color: #ffffff; }
+        
+        .check-icon { 
+            color: #1a2f22; font-size: 12px; font-weight: bold; opacity: 0; 
+            transform: scale3d(0.5, 0.5, 1); 
+            transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1.2), opacity 0.2s; 
+        }
+        .task-item.completed .check-icon { opacity: 1; transform: scale3d(1, 1, 1); }
+
+        .task-content { flex: 1; display: flex; align-items: center; min-width: 0; padding-right: 8px; cursor: default; }
+        
+        .task-text { 
+            font-size: 14.5px; font-weight: 500; color: rgba(255, 255, 255, 0.95); letter-spacing: 0.5px; 
+            width: 100%; line-height: 1.4;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; word-break: break-all;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 2px 10px rgba(0, 0, 0, 0.45);
+        }
+        .task-item.completed .task-text { text-decoration: line-through; color: rgba(255, 255, 255, 0.4); text-shadow: none; }
+        
+        .edit-task-input { width: 100%; background: transparent; border: none; outline: none; color: rgba(255, 255, 255, 0.95); font-size: 14.5px; font-weight: 500; font-family: inherit; padding: 0; margin: 0; letter-spacing: 0.5px; line-height: 1.4;}
+
+        .delete-btn { opacity: 0; color: rgba(255, 255, 255, 0.3); padding: 6px; border-radius: 6px; transition: all 0.2s; margin-left: auto; display: flex; align-items: center; justify-content: center; z-index: 10; cursor: pointer; flex-shrink: 0; }
+        .task-item:hover .delete-btn { opacity: 1; }
+        .delete-btn:hover { color: #ff5252; background: rgba(255, 82, 82, 0.1); }
+        .delete-btn:active { transform: scale(0.85); }
+
+        .note-wrapper { flex: 1; display: flex; position: relative; min-height: 0; width: 100%; margin-bottom: 12px; }
+        .note-area { flex: 1; width: 100%; background: transparent; border: none; outline: none; color: rgba(255, 255, 255, 0.9); font-family: inherit; font-size: 14.5px; line-height: 1.6; resize: none; padding-right: 6px; margin-right: -6px; margin-bottom: 0; transition: opacity 0.2s ease; }
+        .note-area::placeholder { color: rgba(255, 255, 255, 0.3); }
+        .note-area::-webkit-scrollbar { width: 4px; }
+        .note-area::-webkit-scrollbar-track { background: transparent; }
+        .note-area::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        .word-count { position: absolute; bottom: 0px; right: 10px; font-size: 11px; font-weight: 500; color: rgba(255, 255, 255, 0.4); pointer-events: none; transition: opacity 0.3s ease; z-index: 1; }
+
+        .draft-add-btn { position: absolute; bottom: 35px; right: 10px; width: 32px; height: 32px; border-radius: 10px; background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 50; }
+        .draft-add-btn.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        .draft-add-btn:hover { background: rgba(255, 255, 255, 0.25); transform: scale(1.1); color: #ffffff; border-color: #4ade80; }
+        .draft-add-btn:active { transform: scale(0.9); }
+
+        .word-footer { position: relative; z-index: 50; margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.15); display: flex; align-items: flex-start; gap: 8px; }
+        .word-footer i.ph-translate { font-size: 20px; opacity: 0.8; margin-top: 6px; color: #4ade80; }
+        
+        .word-text-box { 
+            flex: 1; cursor: pointer; display: flex; flex-direction: column; justify-content: center; min-width: 0; border-radius: 8px;
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            will-change: transform;
+        }
+        .word-text-box:hover { transform: translateY(-1.5px); }
+        .word-text-box:active { transform: scale3d(0.98, 0.98, 1); }
+        .blurred-translation { filter: blur(5px); opacity: 0.4; transition: all 0.3s ease; user-select: none; }
+        
+        .footer-btn { 
+            cursor: pointer; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s; 
+            font-size: 18px; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; 
+            will-change: transform;
+        }
+        .footer-btn:hover { background: rgba(255, 255, 255, 0.2); color: #4ade80; transform: translateY(-1px) scale3d(1.06, 1.06, 1); }
+        .footer-btn:active { transform: scale3d(0.9, 0.9, 1); opacity: 0.8; } 
+        .eye-hidden { color: #4ade80 !important; }
+
+       .gallery-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(30, 35, 40, 0.75); 
+            backdrop-filter: blur(25px) saturate(120%); -webkit-backdrop-filter: blur(25px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05); 
+            z-index: 999; display: flex; flex-direction: column; padding: 20px; opacity: 0; pointer-events: none; 
+            transition: opacity 0.15s ease; 
+            box-sizing: border-box; border-radius: 16px; overflow: hidden;
+            will-change: opacity;
+        }
+        .gallery-modal.show { opacity: 1; pointer-events: auto; }
+        .gallery-header { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: bold; margin-bottom: 16px; color: #ffffff; letter-spacing: 1px; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+        .gallery-header .close-btn { cursor: pointer; padding: 4px; font-size: 20px; transition: all 0.2s; color: rgba(255,255,255,0.9); }
+        .gallery-header .close-btn:hover { color: #fff; transform: scale(1.1); filter: drop-shadow(0 0 4px white); }
+        
+        .gallery-grid { 
+            display: grid; grid-template-columns: repeat(2, 1fr); 
+            grid-auto-rows: max-content; gap: 12px; overflow-y: auto; overflow-x: hidden !important; 
+            flex: 1; padding-right: 4px; width: 100%; box-sizing: border-box; 
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+        }
+        .gallery-grid::-webkit-scrollbar { width: 4px; }
+        .gallery-grid::-webkit-scrollbar-track { background: transparent; }
+        .gallery-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.4); border-radius: 4px; }
+        
+        .gallery-item { 
+            width: 100%; height: auto; aspect-ratio: 4/5; 
+            border-radius: 10px; position: relative; background-size: cover !important; background-position: center !important; 
+            cursor: pointer; border: 2px solid rgba(255,255,255,0.1); transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); overflow: hidden;
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+        }
+        .gallery-item:hover { transform: scale(1.02); border-color: rgba(255,255,255,0.6); }
+        .gallery-item:active { transform: scale(0.95); }
+        .gallery-item.active-item { border-color: #4ade80; box-shadow: 0 0 15px rgba(74,222,128,0.4); }
+        .gallery-item-delete { position: absolute; top: -6px; right: -6px; background: #ff5252; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.4); z-index: 10; }
+        .gallery-item:hover .gallery-item-delete { opacity: 1; }
+        .gallery-item-delete:hover { transform: scale(1.15); background: #ff1744; }
+        
+        .upload-item { display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border: 2px dashed rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); }
+        .upload-item:hover { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,0.15); }
+        .theme-label { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 12px; color: white; text-shadow: 0 1px 4px rgba(0,0,0,0.8); background: rgba(0,0,0,0.4); padding: 4px 0; pointer-events: none; }
+        .empty-gallery { grid-column: span 2; text-align: center; color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+        .minimalist-container {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        body.minimalist-mode .widget-front {
+            background: rgba(15, 20, 25, 0.4) !important; 
+            padding: 0 !important;
+            overflow: hidden;
+        }
+        body.minimalist-mode .widget-front .header,
+        body.minimalist-mode .widget-front .input-container,
+        body.minimalist-mode .widget-front .list-container,
+        body.minimalist-mode .widget-front .word-footer {
+            display: none !important;
+        }
+        body.minimalist-mode .minimalist-container {
+            display: flex;
+        }
+
+        .mini-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 15, 20, 0.55); 
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+        }
+        
+        .mini-title-input {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 1.5px;
+            outline: none;
+            width: 150px; 
+            padding: 2px 0;
+            box-sizing: border-box;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .mini-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .mini-icon-btn {
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 16px;
+            transition: color 0.2s, transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            will-change: transform;
+        }
+        .mini-icon-btn:hover {
+            color: #ffffff;
+            transform: translateY(-1px) scale3d(1.1, 1.1, 1);
+        }
+        .mini-icon-btn:active {
+            transform: scale3d(0.9, 0.9, 1);
+        }
+
+        .mini-input-container {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0 18px;
+        }
+        .mini-input-container.show {
+            max-height: 50px;
+            opacity: 1;
+            margin-top: 12px;
+            margin-bottom: 6px;
+        }
+        .mini-task-input {
+            width: 100%; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px; border-radius: 8px; 
+            font-size: 13px; color: #ffffff; box-sizing: border-box; outline: none;
+        }
+        .mini-task-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+
+        .mini-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 18px;
+            background: rgba(255, 255, 255, 0.02); 
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+        }
+        .mini-list-container::-webkit-scrollbar { width: 4px; }
+        .mini-list-container::-webkit-scrollbar-track { background: transparent; }
+        .mini-list-container::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+
+        .minimalist-container .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .minimalist-container .task-item {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 8px 0 !important;
+            box-shadow: none !important;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.08) !important;
+        }
+        .minimalist-container .task-item:last-child {
+            border-bottom: none !important;
+        }
+        .minimalist-container .checkbox {
+            border-radius: 4px !important;
+        }
+        .minimalist-container .task-text {
+            font-size: 13.5px !important;
+            font-weight: 500 !important; 
+            color: rgba(255, 255, 255, 0.98) !important; 
+            text-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
+        }
+        .minimalist-container .task-item.completed .task-text {
+            text-decoration: line-through !important;
+            color: rgba(255, 255, 255, 0.55) !important; 
+            text-shadow: none !important;
+        }
+
+        .mini-badge-orange {
+            background: rgba(217, 119, 6, 0.15) !important;
+            color: #fb923c !important;
+            border: 1px solid rgba(217, 119, 6, 0.3) !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+            margin-left: auto !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 3px !important;
+        }
+        .mini-badge-orange.triggered {
+            background: rgba(239, 68, 68, 0.15) !important;
+            color: #f87171 !important;
+            border-color: rgba(239, 68, 68, 0.3) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="flip-container" id="flipContainer">
+        <div class="widget-flipper">
+            <div class="widget-front" id="mainWidget">
+                <div class="focus-overlay"></div>
+
+                <div class="header">
+                    <div class="header-left">
+                        <div class="title-group">
+                            <div class="title-wrapper">
+                                <div class="progress-wrapper" id="historyTrigger" title="点击查看历史归档任务">
+                                    <svg class="progress-ring" width="16" height="16">
+                                        <circle cx="8" cy="8" r="6" stroke="rgba(255,255,255,0.15)" stroke-width="3" fill="none"></circle>
+                                        <circle id="titleProgressRing" cx="8" cy="8" r="6" stroke="#4ade80" stroke-width="3" fill="none" stroke-dasharray="37.7" stroke-dashoffset="37.7" stroke-linecap="round"></circle>
+                                    </svg>
+                                </div>
+                                <input type="text" class="title" id="appTitle" spellcheck="false" autocomplete="off" value="2026任务">
+                            </div>
+                            <div class="pill-style glare-effect" id="subtitleGroup" title="点击设置倒计时日期" onclick="document.getElementById('targetDateInput').showPicker()">
+                                <span class="countdown-text" id="countdownBtnFront"><i class="ph ph-hourglass"></i> 设倒计时</span>
+                                <input type="date" id="targetDateInput" class="hidden-date-input">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="header-right">
+                        <div class="icon-btn custom-bg-btn" title="个性化外观 (皮肤与壁纸)"><i class="ph ph-palette"></i></div>
+                        <div class="icon-btn" id="pomodoroBtn" title="开启 25 分钟番茄专注"><i class="ph ph-timer"></i></div>
+                        <div class="icon-btn" id="flipToNoteBtn" title="切换草稿纸"><i class="ph ph-note-pencil"></i></div>
+                        <div class="icon-btn" id="addTaskBtn" title="添加新任务"><i class="ph ph-plus"></i></div>
+                        <div class="icon-btn pinBtn" title="点击固定在桌面上层"><i class="ph ph-push-pin"></i></div>
+                    </div>
+                </div>
+                
+                <div class="input-container" id="inputContainer">
+                    <input type="text" class="task-input" id="taskInput" placeholder="输入任务 (例: 明晚8点看书)" autocomplete="off">
+                </div>
+                
+                <div class="list-container" id="listContainer">
+                    <ul class="task-list" id="taskList"></ul>
+                </div>
+                
+                <div class="word-footer">
+                    <i class="ph ph-translate"></i>
+                    <div class="word-text-box class-word-trigger glare-effect" title="点击手动更换单词" style="padding: 0 4px;">
+                        <span class="word-box">加载中...</span>
+                    </div>
+                    <div class="footer-btn class-speak-trigger" title="点击播放美音"><i class="ph ph-speaker-high"></i></div>
+                    <div class="footer-btn class-eye-trigger" title="盲猜模式"><i class="ph ph-eye"></i></div>
+                    <div class="footer-btn class-import-trigger" title="导入词库"><i class="ph ph-upload-simple"></i></div>
+                </div>
+
+                <div class="minimalist-container" id="minimalistContainer">
+                    <div class="mini-header">
+                        <input type="text" class="mini-title-input" id="miniTitleInput" spellcheck="false" autocomplete="off" value="日程">
+                        <div class="mini-header-right">
+                            <div class="mini-icon-btn" id="miniLockBtn" title="固定窗口"><i class="ph-bold ph-lock-open"></i></div>
+                            <div class="mini-icon-btn" id="miniCycleBtn" title="返回主界面"><i class="ph-bold ph-arrows-counter-clockwise"></i></div>
+                            <div class="mini-icon-btn" id="miniAddTaskBtn" title="添加任务"><i class="ph-bold ph-plus"></i></div>
+                        </div>
+                    </div>
+                    <div class="mini-input-container" id="miniInputContainer">
+                        <input type="text" class="mini-task-input" id="miniTaskInput" placeholder="输入日程 (例: 下午3点开会)" autocomplete="off">
+                    </div>
+                    <div class="mini-list-container" id="miniListContainer">
+                        <ul class="task-list" id="miniTaskList"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="widget-back" id="noteWidget">
+                <div class="focus-overlay"></div>
+                
+                <div class="header">
+                    <div class="header-left">
+                        <div class="title-group">
+                            <div class="title" style="pointer-events: none;">草稿纸</div>
+                            <div class="pill-style glare-effect" style="border:none; padding-left:0; background:transparent;">
+                                <span class="lunar-text lunarDateBack">历算中...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="header-right">
+                        <div class="icon-btn" id="clearNoteBtn" title="一键清空草稿"><i class="ph ph-trash"></i></div>
+                        <div class="icon-btn" id="flipToTodoBtn" title="返回待办"><i class="ph ph-check-square"></i></div>
+                        <div class="icon-btn pinBtn" title="点击固定在桌面上层"><i class="ph ph-push-pin"></i></div>
+                    </div>
+                </div>
+                
+                <div class="note-wrapper">
+                    <textarea class="note-area" id="noteArea" placeholder="随手记点什么吧... (划选文字自动转任务)"></textarea>
+                    <div class="word-count" id="wordCount"></div>
+                    <div id="draftAddBtn" class="draft-add-btn" title="将选中文字转为待办任务"><i class="ph-bold ph-plus"></i></div>
+                </div>
+                
+                <div class="word-footer">
+                    <i class="ph ph-translate"></i>
+                    <div class="word-text-box class-word-trigger glare-effect" title="点击手动更换单词" style="padding: 0 4px;">
+                        <span class="word-box">加载中...</span>
+                    </div>
+                    <div class="footer-btn class-speak-trigger" title="点击播放美音"><i class="ph ph-speaker-high"></i></div>
+                    <div class="footer-btn class-eye-trigger" title="盲猜模式"><i class="ph ph-eye"></i></div>
+                    <div class="footer-btn class-import-trigger" title="导入词库"><i class="ph ph-upload-simple"></i></div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <div class="gallery-modal" id="galleryModal">
+            <div class="gallery-header">
+                <span>个性化外观</span>
+                <i class="ph ph-x close-btn" id="closeGalleryBtn" title="关闭"></i>
+            </div>
+            <div class="gallery-grid" id="galleryGrid"></div>
+        </div>
+
+        <div class="gallery-modal" id="historyModal">
+            <div class="gallery-header" style="margin-bottom: 12px;">
+                <span>已完成的任务</span>
+                <i class="ph ph-x close-btn" id="closeHistoryBtn" title="关闭"></i>
+            </div>
+            <div class="list-container" style="flex:1; margin-bottom:0;">
+                <ul class="task-list" id="historyList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="wordFileInput" accept=".txt" style="display: none;">
+    <input type="file" id="customImageInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
+
+    <script>
+        document.body.addEventListener('mouseenter', () => { if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('window-enter'); });
+        document.body.addEventListener('mouseleave', () => { if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('window-leave'); });
+
+        let isAppDragging = false;
+        let dragTarget = null; 
+        let dragAnimationFrame = null; 
+        let latestScreenX = 0;
+        let latestScreenY = 0;
+        
+        document.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0) return; 
+
+            if (e.target.closest('.icon-btn, .mini-icon-btn, input, textarea, .list-container, .mini-list-container, .gallery-grid, .close-btn, .progress-wrapper, .draft-add-btn, .word-text-box, .pill-style')) {
+                return;
+            }
+            
+            if (isPinned) return; 
+
+            isAppDragging = true;
+            dragTarget = e.target; 
+            try { dragTarget.setPointerCapture(e.pointerId); } catch(err) {}
+            
+            if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('drag-start', { x: e.screenX, y: e.screenY });
+        });
+
+        document.addEventListener('pointermove', (e) => {
+            if (!isAppDragging) return;
+            
+            latestScreenX = e.screenX;
+            latestScreenY = e.screenY;
+            
+            if (!dragAnimationFrame) {
+                dragAnimationFrame = requestAnimationFrame(() => {
+                    if (typeof ipcRenderer !== 'undefined') {
+                        ipcRenderer.send('drag-move', { x: latestScreenX, y: latestScreenY });
+                    }
+                    dragAnimationFrame = null;
+                });
+            }
+        });
+
+        document.addEventListener('pointerup', (e) => {
+            if (!isAppDragging) return;
+            isAppDragging = false;
+            
+            if (dragAnimationFrame) {
+                cancelAnimationFrame(dragAnimationFrame);
+                dragAnimationFrame = null;
+            }
+            
+            if (dragTarget) {
+                try { dragTarget.releasePointerCapture(e.pointerId); } catch(err) {}
+                dragTarget = null;
+            }
+            if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('drag-end');
+        });
+
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; 
+            e.preventDefault();
+            if (typeof ipcRenderer !== 'undefined') {
+                ipcRenderer.send('show-context-menu');
+            }
+        });
+
+        function bindGlareEffect(el) {
+            el.addEventListener('mousemove', e => {
+                const rect = el.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                el.style.setProperty('--x', `${x}px`);
+                el.style.setProperty('--y', `${y}px`);
+            });
+        }
+        document.querySelectorAll('.glare-effect').forEach(bindGlareEffect);
+
+        const themePresets = [
+            { name: "经典黑透", bg: "rgba(15, 25, 20, 0.25)", border: "rgba(255, 255, 255, 0.1)", filter: "blur(12px)" },
+            { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" } 
+        ];
+        
+        let customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
+        let currentThemeIndex = parseInt(localStorage.getItem('canvas_todo_theme')) || 0;
+        let isMinimalistLayout = localStorage.getItem('canvas_todo_minimalist_layout') === 'true';
+
+        function applyTheme() {
+            currentThemeIndex = parseInt(localStorage.getItem('canvas_todo_theme')) || 0;
+            customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
+            isMinimalistLayout = localStorage.getItem('canvas_todo_minimalist_layout') === 'true';
+
+            if (isMinimalistLayout) {
+                document.body.classList.add('minimalist-mode');
+                if (typeof ipcRenderer !== 'undefined') {
+                    ipcRenderer.send('set-minimalist-mode', true);
+                }
+            } else {
+                document.body.classList.remove('minimalist-mode');
+                if (typeof ipcRenderer !== 'undefined') {
+                    ipcRenderer.send('set-minimalist-mode', false);
+                }
+            }
+
+            const totalThemes = themePresets.concat(customThemes);
+            if (currentThemeIndex >= totalThemes.length || isNaN(currentThemeIndex)) currentThemeIndex = 0;
+            const theme = totalThemes[currentThemeIndex];
+            const frontEl = document.getElementById('mainWidget');
+            const backEl = document.getElementById('noteWidget');
+
+            [frontEl, backEl].forEach(el => {
+                if (el) {
+                    el.style.background = theme.bg; el.style.backgroundSize = theme.size || "auto"; el.style.backgroundPosition = "center";
+                    el.style.borderColor = theme.border; el.style.backdropFilter = theme.filter; el.style.webkitBackdropFilter = theme.filter;
+                }
+            });
+        }
+        
+        const customImageInput = document.getElementById('customImageInput');
+        const galleryModal = document.getElementById('galleryModal');
+        const galleryGrid = document.getElementById('galleryGrid');
+        const flipContainer = document.getElementById('flipContainer');
+
+        document.getElementById('closeGalleryBtn').addEventListener('click', () => { 
+            galleryModal.classList.remove('show'); 
+            flipContainer.classList.remove('hide-flipper');
+        });
+
+        document.querySelectorAll('.custom-bg-btn').forEach(btn => {
+            btn.addEventListener('click', () => { 
+                renderGallery(); 
+                galleryModal.classList.add('show'); 
+                flipContainer.classList.add('hide-flipper'); 
+            });
+        });
+
+        function renderGallery() {
+            galleryGrid.innerHTML = '';
+            
+            const uploadDiv = document.createElement('div');
+            uploadDiv.className = 'gallery-item upload-item';
+            uploadDiv.innerHTML = `<i class="ph-bold ph-plus" style="font-size: 28px; margin-bottom: 6px;"></i><span>自定义壁纸</span>`;
+            uploadDiv.onclick = () => customImageInput.click();
+            galleryGrid.appendChild(uploadDiv);
+
+            const miniDiv = document.createElement('div');
+            miniDiv.className = 'gallery-item' + (isMinimalistLayout ? ' active-item' : '');
+            miniDiv.style.background = "rgba(15, 20, 25, 0.4)";
+            miniDiv.style.backdropFilter = "blur(12px)";
+            miniDiv.style.webkitBackdropFilter = "blur(12px)";
+            miniDiv.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:6px; padding:10px; box-sizing:border-box;">
+                    <i class="ph ph-squares-four" style="font-size: 28px; color:rgba(255,255,255,0.7)"></i>
+                    <span style="font-size:12px; font-weight:bold; color:white;">极简款式</span>
+                </div>
+            `;
+            miniDiv.onclick = () => {
+                isMinimalistLayout = true;
+                localStorage.setItem('canvas_todo_minimalist_layout', 'true');
+                applyTheme();
+                renderGallery();
+                renderMinimalistTasks();
+            };
+            galleryGrid.appendChild(miniDiv);
+
+            const allThemes = themePresets.concat(customThemes);
+            allThemes.forEach((theme, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'gallery-item' + ((!isMinimalistLayout && currentThemeIndex === index) ? ' active-item' : '');
+                
+                itemDiv.style.background = theme.bg;
+                itemDiv.style.backdropFilter = theme.filter || 'none';
+                itemDiv.style.webkitBackdropFilter = theme.filter || 'none';
+
+                if (index < themePresets.length) {
+                    const label = document.createElement('div');
+                    label.className = 'theme-label';
+                    label.innerText = theme.name;
+                    itemDiv.appendChild(label);
+                } else {
+                    const delBtn = document.createElement('div');
+                    delBtn.className = 'gallery-item-delete';
+                    delBtn.innerHTML = '<i class="ph ph-trash"></i>';
+                    delBtn.onclick = (e) => {
+                        e.stopPropagation(); customThemes.splice(index - themePresets.length, 1);
+                        localStorage.setItem('canvas_todo_custom_themes', JSON.stringify(customThemes));
+                        if (currentThemeIndex === index) currentThemeIndex = 0; 
+                        else if (currentThemeIndex > index) currentThemeIndex--;
+                        localStorage.setItem('canvas_todo_theme', currentThemeIndex);
+                        applyTheme(); renderGallery(); 
+                    };
+                    itemDiv.appendChild(delBtn);
+                }
+
+                itemDiv.onclick = () => {
+                    isMinimalistLayout = false;
+                    localStorage.setItem('canvas_todo_minimalist_layout', 'false');
+                    currentThemeIndex = index;
+                    localStorage.setItem('canvas_todo_theme', currentThemeIndex);
+                    applyTheme(); renderGallery(); 
+                };
+                galleryGrid.appendChild(itemDiv);
+            });
+        }
+
+        customImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            if (file.path) {
+                customThemes.push({
+                    name: `自定壁纸`,
+                    bg: `linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('file:///${file.path.replace(/\\/g, '/')}')`,
+                    border: "rgba(255, 255, 255, 0.2)", filter: "blur(6px)", size: "cover"
+                });
+                localStorage.setItem('canvas_todo_custom_themes', JSON.stringify(customThemes));
+                currentThemeIndex = themePresets.length + customThemes.length - 1;
+                localStorage.setItem('canvas_todo_theme', currentThemeIndex);
+                applyTheme(); if(galleryModal.classList.contains('show')) renderGallery();
+            }
+            e.target.value = ''; 
+        });
+        applyTheme();
+
+        function playAudio(text) {
+            if (!text) return;
+            new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`).play().catch(e => console.log(e));
+        }
+
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) { const AudioContext = window.AudioContext || window.webkitAudioContext; audioCtx = new AudioContext(); }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playDing() {
+            if (!audioCtx) initAudio();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05); 
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 3); 
+            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 3);
+        }
+
+        function playPop() {
+            if (!audioCtx) initAudio();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(600, audioCtx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1); 
+            gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01); 
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1); 
+            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function getFullLunarDateStr() {
+            const date = new Date();
+            const stems = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+            const branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+            const baseDate = new Date(Date.UTC(1900, 0, 1)); 
+            const targetDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayGanZhi = stems[Math.floor((targetDate - baseDate) / 86400000) % 10] + branches[(Math.floor((targetDate - baseDate) / 86400000) + 10) % 12];
+            try {
+                const fullStr = new Intl.DateTimeFormat('zh-CN', { calendar: 'chinese', dateStyle: 'full' }).format(date);
+                const yearMatch = fullStr.match(/([甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥])/);
+                let rawMonth = new Intl.DateTimeFormat('zh-CN', { calendar: 'chinese', month: 'numeric' }).format(date);
+                let mNum = 1; const matchNum = rawMonth.match(/\d+/);
+                if (matchNum) mNum = parseInt(matchNum[0]);
+                else {
+                    if (rawMonth.includes("十一") || rawMonth.includes("冬")) mNum = 11;
+                    else if (rawMonth.includes("十二") || rawMonth.includes("腊")) mNum = 12;
+                    else if (rawMonth.includes("正") || rawMonth.includes("一")) mNum = 1;
+                    else if (rawMonth.includes("二")) mNum = 2; else if (rawMonth.includes("三")) mNum = 3;
+                    else if (rawMonth.includes("四")) mNum = 4; else if (rawMonth.includes("五")) mNum = 5;
+                    else if (rawMonth.includes("六")) mNum = 6; else if (rawMonth.includes("七")) mNum = 7;
+                    else if (rawMonth.includes("八")) mNum = 8; else if (rawMonth.includes("九")) mNum = 9;
+                    else if (rawMonth.includes("十")) mNum = 10;
+                }
+                if (yearMatch) return `${yearMatch[1]}年 ${stems[(((stems.indexOf(yearMatch[1][0]) % 5) * 2 + 2) + mNum - 1) % 10] + branches[(mNum + 1) % 12]}月 ${dayGanZhi}日`;
+            } catch(e) {}
+            return `农历 ${dayGanZhi}日`;
+        }
+        function updateLunarDate() {
+            const lunarStr = getFullLunarDateStr();
+            const backEl = document.querySelector('.lunarDateBack');
+            if(backEl) backEl.innerHTML = `<i class="ph ph-moon-stars" style="margin-right:2px"></i> ${lunarStr}`;
+        }
+        updateLunarDate(); setInterval(updateLunarDate, 1000 * 60 * 60);
+
+        const countdownBtnFront = document.getElementById('countdownBtnFront');
+        const targetDateInput = document.getElementById('targetDateInput');
+        const subtitleGroup = document.getElementById('subtitleGroup');
+        const pomodoroBtn = document.getElementById('pomodoroBtn'); 
+
+        let isPomodoro = false; let pomodoroTime = 25 * 60; let pomodoroTimer = null;
+
+        function renderCountdown() {
+            if (isPomodoro) return; 
+            const savedDateStr = localStorage.getItem('todo_target_date');
+            if (!savedDateStr) {
+                countdownBtnFront.innerHTML = '<i class="ph-bold ph-hourglass"></i> 设倒计时';
+                countdownBtnFront.style.color = 'rgba(255, 255, 255, 0.7)';
+                return;
+            }
+            const parts = savedDateStr.split('-');
+            const days = Math.round((new Date(parts[0], parts[1] - 1, parts[2]).getTime() - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime()) / 86400000); 
+            if (days > 0) { countdownBtnFront.innerHTML = `<i class="ph-bold ph-clock-countdown"></i> 剩 ${days} 天`; countdownBtnFront.style.color = "#4ade80"; } 
+            else if (days === 0) { countdownBtnFront.innerHTML = `<i class="ph-bold ph-warning-circle"></i> 就是今天`; countdownBtnFront.style.color = "#ff9800"; } 
+            else { countdownBtnFront.innerHTML = `<i class="ph-bold ph-check-circle"></i> 已结束`; countdownBtnFront.style.color = "rgba(255,255,255,0.4)"; }
+        }
+
+        function updatePomodoroDisplay() {
+            const m = Math.floor(pomodoroTime / 60).toString().padStart(2, '0');
+            const s = (pomodoroTime % 60).toString().padStart(2, '0');
+            countdownBtnFront.innerHTML = `<i class="ph-bold ph-timer"></i> 专注 ${m}:${s}`;
+            countdownBtnFront.style.color = "#ff5252"; 
+        }
+
+        function togglePomodoro() {
+            initAudio(); 
+            if (isPomodoro) {
+                isPomodoro = false; clearInterval(pomodoroTimer);
+                document.body.classList.remove('pomodoro-active');
+                pomodoroBtn.classList.remove('pomodoro-running');
+                pomodoroBtn.innerHTML = '<i class="ph ph-timer"></i>'; pomodoroBtn.title = "开启 25 分钟番茄专注";
+                subtitleGroup.style.pointerEvents = 'auto'; 
+                renderCountdown();
+            } else {
+                isPomodoro = true; pomodoroTime = 25 * 60;
+                document.body.classList.add('pomodoro-active');
+                pomodoroBtn.classList.add('pomodoro-running');
+                pomodoroBtn.innerHTML = '<i class="ph-bold ph-stop-circle"></i>'; pomodoroBtn.title = "提前结束专注";
+                subtitleGroup.style.pointerEvents = 'none'; 
+                updatePomodoroDisplay();
+                pomodoroTimer = setInterval(() => {
+                    pomodoroTime--;
+                    if (pomodoroTime <= 0) { playDing(); togglePomodoro(); } 
+                    else { updatePomodoroDisplay(); }
+                }, 1000);
+            }
+        }
+        pomodoroBtn.addEventListener('click', togglePomodoro);
+        targetDateInput.addEventListener('change', (e) => { if(e.target.value) { localStorage.setItem('todo_target_date', e.target.value); renderCountdown(); }});
+        renderCountdown(); 
+
+        const defaultWords = [{ word: "Analyze", phonetic: "/ˈænəlaɪz/", trans: "v. 分析，研究" }];
+        let isTransVisible = localStorage.getItem('todo_show_trans') === 'true';
+        let currentWordText = ""; 
+
+        function updateWord(forceNext = false) {
+            let activeWords = JSON.parse(localStorage.getItem('todo_custom_words')) || [];
+            if(activeWords.length === 0) activeWords = defaultWords;
+            let wordIndex = parseInt(localStorage.getItem('todo_word_index')) || 0;
+            let lastWordTime = parseInt(localStorage.getItem('todo_word_time')) || 0;
+            const now = Date.now();
+
+            if (forceNext || (now - lastWordTime > 2 * 60 * 60 * 1000) || lastWordTime === 0) {
+                if (forceNext || lastWordTime !== 0) wordIndex = (wordIndex + 1) % activeWords.length; 
+                localStorage.setItem('todo_word_index', wordIndex); localStorage.setItem('todo_word_time', now);
+            }
+            if (wordIndex >= activeWords.length) wordIndex = 0; 
+            const currentWord = activeWords[wordIndex]; currentWordText = currentWord.word; 
+
+            const phoneticHtml = currentWord.phonetic ? `<div style="font-size: 13px; opacity: 0.6; font-family: 'Segoe UI', sans-serif; margin-bottom: 2px;">${currentWord.phonetic}</div>` : '';
+            const blurClass = isTransVisible ? '' : 'blurred-translation';
+            
+            const wordHtml = `
+                <div style="display: flex; flex-direction: column; width: 100%; overflow:hidden;">
+                    <div style="font-size: 26px; font-weight: 800; color: #4ade80; letter-spacing: 0.5px; line-height: 1.1; margin-bottom: 4px; text-shadow: 0 2px 10px rgba(74, 222, 128, 0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${currentWord.word}
+                    </div>
+                    ${phoneticHtml}
+                    <div class="trans-text-elem ${blurClass}" style="font-size: 14.5px; color: rgba(255, 255, 255, 0.9); line-height: 1.4; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                        ${currentWord.trans || ''}
+                    </div>
+                </div>
+            `;
+            document.querySelectorAll('.word-box').forEach(el => el.innerHTML = wordHtml);
+            document.querySelectorAll('.class-eye-trigger i').forEach(icon => icon.className = isTransVisible ? 'ph ph-eye' : 'ph ph-eye-closed eye-hidden');
+        }
+
+        document.querySelectorAll('.class-word-trigger').forEach(btn => btn.addEventListener('click', () => updateWord(true))); 
+        document.querySelectorAll('.class-eye-trigger').forEach(btn => {
+            btn.addEventListener('click', () => {
+                isTransVisible = !isTransVisible; localStorage.setItem('todo_show_trans', isTransVisible); 
+                document.querySelectorAll('.class-eye-trigger i').forEach(icon => icon.className = isTransVisible ? 'ph ph-eye' : 'ph ph-eye-closed eye-hidden');
+                document.querySelectorAll('.trans-text-elem').forEach(el => isTransVisible ? el.classList.remove('blurred-translation') : el.classList.add('blurred-translation'));
+            });
+        });
+        document.querySelectorAll('.class-speak-trigger').forEach(btn => btn.addEventListener('click', () => playAudio(currentWordText)));
+
+        const wordFileInput = document.getElementById('wordFileInput');
+        document.querySelectorAll('.class-import-trigger').forEach(btn => {
+            btn.addEventListener('click', () => wordFileInput.click());
+        }); 
+        
+        wordFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const newCustomWords = [];
+                event.target.result.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
+                    if (line.includes('|')) {
+                        const parts = line.split('|').map(p => p.trim());
+                        newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
+                    } else {
+                        const cnIndex = line.search(/[\u4e00-\u9fa5]/);
+                        if (cnIndex !== -1) newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
+                    }
+                });
+                if (newCustomWords.length > 0) {
+                    localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
+                    alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
+                }
+            };
+            reader.readAsText(file, 'utf-8'); e.target.value = ''; 
+        });
+
+        updateWord(false);
+        setInterval(() => { if(!isPomodoro) { updateWord(false); renderCountdown(); } }, 60000);
+
+        let tasks = JSON.parse(localStorage.getItem('canvas_todo_tasks_notime')) || [];
+        
+        const taskListEl = document.getElementById('taskList');
+        const historyListEl = document.getElementById('historyList');
+        const addTaskBtn = document.getElementById('addTaskBtn');
+        const pinBtns = document.querySelectorAll('.pinBtn');
+        const mainWidget = document.getElementById('mainWidget');
+        const noteWidget = document.getElementById('noteWidget');
+        const inputContainer = document.getElementById('inputContainer');
+        const taskInput = document.getElementById('taskInput');
+        const appTitle = document.getElementById('appTitle');
+        const flipToNoteBtn = document.getElementById('flipToNoteBtn');
+        const flipToTodoBtn = document.getElementById('flipToTodoBtn');
+        
+        const noteArea = document.getElementById('noteArea');
+        const wordCount = document.getElementById('wordCount');
+        const clearNoteBtn = document.getElementById('clearNoteBtn');
+        const draftAddBtn = document.getElementById('draftAddBtn');
+
+        function updateWordCount() { wordCount.textContent = noteArea.value.length > 0 ? `${noteArea.value.length} 字` : ''; }
+        noteArea.value = localStorage.getItem('canvas_todo_note') || ''; updateWordCount();
+        noteArea.addEventListener('input', () => { localStorage.setItem('canvas_todo_note', noteArea.value); updateWordCount(); draftAddBtn.classList.remove('show'); });
+        clearNoteBtn.addEventListener('click', () => {
+            noteArea.style.opacity = '0'; 
+            setTimeout(() => { noteArea.value = ''; localStorage.setItem('canvas_todo_note', ''); updateWordCount(); noteArea.style.opacity = '1'; }, 200);
+        });
+
+        noteArea.addEventListener('mouseup', () => {
+            const text = window.getSelection().toString().trim();
+            if (text.length > 0) { draftAddBtn.classList.add('show'); } else { draftAddBtn.classList.remove('show'); }
+        });
+        document.addEventListener('selectionchange', () => {
+            if (!window.getSelection().toString().trim()) { draftAddBtn.classList.remove('show'); }
+        });
+        document.addEventListener('mousedown', (e) => {
+            if (!draftAddBtn.contains(e.target) && e.target !== noteArea) draftAddBtn.classList.remove('show');
+        });
+
+        draftAddBtn.addEventListener('click', () => {
+            const text = window.getSelection().toString().trim();
+            if(text) {
+                playPop(); 
+                const parsed = parseTaskTime(text);
+                tasks.unshift({
+                    id: Date.now(), text: text, completed: false, createdAt: Date.now(),
+                    targetTime: parsed.targetTime, recurring: parsed.isRecurring, alerted: false
+                });
+                saveAndRender(); draftAddBtn.classList.remove('show'); window.getSelection().removeAllRanges();
+            }
+        });
+
+        const historyTrigger = document.getElementById('historyTrigger');
+        const historyModal = document.getElementById('historyModal');
+        const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+        historyTrigger.addEventListener('click', () => { 
+            renderHistoryTasks(); 
+            historyModal.classList.add('show'); 
+            flipContainer.classList.add('hide-flipper'); 
+        });
+        closeHistoryBtn.addEventListener('click', () => { 
+            historyModal.classList.remove('show'); 
+            flipContainer.classList.remove('hide-flipper');
+        });
+        
+        flipToNoteBtn.addEventListener('click', () => { 
+            flipContainer.classList.add('flipped'); 
+            setTimeout(() => { noteArea.focus(); }, 600); 
+        });
+        flipToTodoBtn.addEventListener('click', () => { flipContainer.classList.remove('flipped'); });
+
+        let isPinned = localStorage.getItem('canvas_todo_pinned') === 'true';
+        function updatePinState() {
+            if (isPinned) {
+                mainWidget.classList.add('pinned'); noteWidget.classList.add('pinned');
+                pinBtns.forEach(btn => { btn.classList.add('pinned-active'); });
+                const miniLockIcon = document.querySelector('#miniLockBtn i');
+                if (miniLockIcon) {
+                    miniLockIcon.className = 'ph-bold ph-lock';
+                    document.getElementById('miniLockBtn').title = "解锁窗口";
+                }
+            } else {
+                mainWidget.classList.remove('pinned'); noteWidget.classList.remove('pinned');
+                pinBtns.forEach(btn => { btn.classList.remove('pinned-active'); });
+                const miniLockIcon = document.querySelector('#miniLockBtn i');
+                if (miniLockIcon) {
+                    miniLockIcon.className = 'ph-bold ph-lock-open';
+                    document.getElementById('miniLockBtn').title = "固定窗口";
+                }
+            }
+            if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('toggle-pin', isPinned);
+        }
+        updatePinState(); 
+        pinBtns.forEach(btn => { btn.addEventListener('click', () => { isPinned = !isPinned; localStorage.setItem('canvas_todo_pinned', isPinned); updatePinState(); }); });
+
+        document.getElementById('miniLockBtn').addEventListener('click', () => {
+            isPinned = !isPinned;
+            localStorage.setItem('canvas_todo_pinned', isPinned);
+            updatePinState();
+        });
+
+        document.getElementById('miniCycleBtn').addEventListener('click', () => {
+            isMinimalistLayout = false;
+            localStorage.setItem('canvas_todo_minimalist_layout', 'false');
+            applyTheme();
+            renderTasks();
+        });
+
+        appTitle.value = localStorage.getItem('canvas_todo_title') || '2026任务';
+        appTitle.addEventListener('input', () => localStorage.setItem('canvas_todo_title', appTitle.value));
+        appTitle.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); appTitle.blur(); } });
+
+        const miniTitleInput = document.getElementById('miniTitleInput');
+        miniTitleInput.value = localStorage.getItem('canvas_todo_mini_title') || '日程';
+        miniTitleInput.addEventListener('input', () => {
+            localStorage.setItem('canvas_todo_mini_title', miniTitleInput.value);
+        });
+        miniTitleInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                miniTitleInput.blur();
+            }
+        });
+
+        function cnToInt(str) {
+            if (!str) return 0;
+            str = str.replace(/个/g, '').trim();
+            if (str === '半') return 0.5;
+            if (str.endsWith('半')) return cnToInt(str.replace('半', '')) + 0.5;
+            if (/^\d+(\.\d+)?$/.test(str)) return parseFloat(str);
+            const map = {'零':0, '一':1, '二':2, '两':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9, '十':10};
+            if (str.length === 1) return map[str] || 0;
+            if (str.length === 2) {
+                if (str[0] === '十') return 10 + (map[str[1]] || 0); 
+                if (str[1] === '十') return (map[str[0]] || 0) * 10; 
+            }
+            if (str.length === 3 && str[1] === '十') return (map[str[0]] || 0) * 10 + (map[str[2]] || 0);
+            return parseInt(str) || 0;
+        }
+
+        function parseTaskTime(text) {
+            let targetDate = new Date();
+            let isRecurring = text.includes('每天') || text.includes('每日');
+
+            let relMatch = text.match(/(半|\d+(?:\.\d+)?(?:g?半)?|[一二两三四五六七八九十百]+(?:g?半)?)\s*个?(小时|小时候|时|钟头|分钟|分|天)(?:[之后内])?/);
+            if (relMatch) {
+                let num = cnToInt(relMatch[1]); let unit = relMatch[2]; let multiplier = 0;
+                if (unit === '分钟' || unit === '分') multiplier = 60000;
+                else if (unit === '小时' || unit === '小时候' || unit === '时' || unit === '钟头') multiplier = 3600000;
+                else if (unit === '天') multiplier = 86400000;
+                if (multiplier > 0) return { targetTime: Date.now() + num * multiplier, isRecurring };
+            }
+
+            let hasDate = false;
+            let dateMatch = text.match(/(?:(\d+|[一二两三四五六七八九十百]+)年)?(\d+|[一二两三四五六七八九十]+)月(\d+|[一二两三四五六七八九十百]+)[号日]/);
+            if (dateMatch) {
+                hasDate = true; let m = cnToInt(dateMatch[2]); let d = cnToInt(dateMatch[3]);
+                if (dateMatch[1]) targetDate.setFullYear(cnToInt(dateMatch[1]));
+                targetDate.setMonth(m - 1, d);
+            } else if (text.includes('后天')) { hasDate = true; targetDate.setDate(targetDate.getDate() + 2);
+            } else if (text.includes('明天') || text.includes('明早') || text.includes('明晚')) { hasDate = true; targetDate.setDate(targetDate.getDate() + 1);
+            } else if (text.includes('今天') || text.includes('今早') || text.includes('今晚')) { hasDate = true; }
+
+            let timeMatch = text.match(/(?:(早上|上午|中午|下午|晚上|夜里|凌晨|明早|今早|明晚|今晚)\s*)?(\d+|[一二两三四五六七八九十十一十二]+)(?:点|:|：)(\d+|[一二两三四五六七八九十]+)?(分|半)?/);
+            if (!timeMatch) timeMatch = text.match(/(早上|上午|中午|下午|晚上|夜里|凌晨|明早|今早|明晚|今晚)?(\d+|[一二两三四五六七八九十十一十二]+)点/);
+            
+            if (timeMatch) {
+                let period = timeMatch[1] || ''; let h = cnToInt(timeMatch[2]); let mStr = timeMatch[3]; let modifier = timeMatch[4]; let m = 0;
+                if (modifier === '半') m = 30; else if (mStr) m = cnToInt(mStr);
+                if ((period.includes('下午') || period.includes('晚上') || period.includes('夜里') || period.includes('明晚') || period.includes('今晚') || text.includes('下午') || text.includes('晚上')) && h < 12) { h += 12;
+                } else if (h === 12 && (period.includes('早上') || period.includes('上午') || period.includes('凌晨'))) { h = 0; }
+                targetDate.setHours(h, m, 0, 0);
+                if (!hasDate && targetDate.getTime() <= Date.now() && !text.includes('今天') && !text.includes('今早') && !text.includes('今晚')) { targetDate.setDate(targetDate.getDate() + 1); }
+                return { targetTime: targetDate.getTime(), isRecurring };
+            }
+            
+            if (hasDate && !timeMatch) {
+                if (text.includes('晚上')) targetDate.setHours(20, 0, 0, 0);
+                else if (text.includes('下午')) targetDate.setHours(14, 0, 0, 0);
+                else targetDate.setHours(9, 0, 0, 0);
+                return { targetTime: targetDate.getTime(), isRecurring };
+            }
+            return { targetTime: null, isRecurring };
+        }
+
+        function updateOverallProgress() {
+            const ring = document.getElementById('titleProgressRing');
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            const circumference = 37.7; 
+            if (total === 0) {
+                ring.style.strokeDashoffset = circumference;
+            } else {
+                ring.style.strokeDashoffset = circumference - (circumference * completed / total);
+            }
+        }
+
+        function renderTasks() {
+            taskListEl.innerHTML = '';
+            const now = Date.now();
+            let needsSave = false;
+            const activeTasks = tasks.filter(t => !t.completed);
+
+            if (activeTasks.length === 0) {
+                const h = new Date().getHours();
+                let msg = h < 12 ? '☕ 开启专注的一天吧' : (h < 18 ? '🍃 喝口水，休息一下' : '🌙 任务清空，晚安');
+                taskListEl.innerHTML = `<div class="empty-state">${msg}</div>`;
+            }
+
+            activeTasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'task-item glare-effect';
+                li.draggable = true; li.dataset.id = task.id;
+
+                let timeHtml = ''; let progressHtml = '';
+                let recurIcon = task.recurring ? `<i class="ph-bold ph-arrows-clockwise" style="margin-right:2px;"></i>` : '';
+
+                if (task.targetTime) {
+                    if (now >= task.targetTime) {
+                        li.classList.add('task-ringing');
+                        timeHtml = `<span style="font-size:11px; color:#ff5252; margin-left:auto; white-space:nowrap; padding-left:6px; flex-shrink:0;"><i class="ph-bold ph-bell-ringing"></i> 已超时</span>`;
+                        if (!task.alerted) { playDing(); task.alerted = true; needsSave = true; }
+                    } else {
+                        const diffMins = Math.floor((task.targetTime - now) / 60000);
+                        let timeStr = '';
+                        if (diffMins > 24 * 60) timeStr = `${Math.floor(diffMins / 1440)}天后`;
+                        else if (diffMins > 60) timeStr = `${Math.floor(diffMins / 60)}小时后`;
+                        else timeStr = `${diffMins}分钟后`;
+
+                        let color = diffMins <= 15 ? '#ff9800' : 'rgba(255,255,255,0.4)';
+                        timeHtml = `<span style="font-size:11px; color:${color}; margin-left:auto; white-space:nowrap; padding-left:6px; flex-shrink:0;">${recurIcon}<i class="ph ph-clock"></i> ${timeStr}</span>`;
+                        
+                        if (task.createdAt) {
+                            let total = task.targetTime - task.createdAt; let passed = now - task.createdAt;
+                            let percent = Math.min(100, Math.max(0, (passed / total) * 100));
+                            let barColor = diffMins <= 15 ? '#ff9800' : 'rgba(74,222,128,0.5)';
+                            progressHtml = `<div class="task-progress" style="width:${percent}%; background:${barColor};"></div>`;
+                        }
+                    }
+                } else if (task.recurring) {
+                    timeHtml = `<span style="font-size:11px; color:rgba(255,255,255,0.4); margin-left:auto; white-space:nowrap; padding-left:6px; flex-shrink:0;">${recurIcon}每日循环</span>`;
+                }
+
+                li.innerHTML = `
+                    <div class="checkbox-wrapper"><div class="checkbox"><i class="ph-bold ph-check check-icon"></i></div></div>
+                    <div class="task-content"><div class="task-text">${task.text}</div></div>
+                    ${timeHtml}
+                    <div class="delete-btn" title="删除任务"><i class="ph ph-trash"></i></div>
+                    ${progressHtml}
+                `;
+                bindGlareEffect(li); 
+                
+                const checkboxWrapper = li.querySelector('.checkbox-wrapper'); const deleteBtn = li.querySelector('.delete-btn');
+                const disableDrag = () => li.draggable = false; const enableDrag = () => li.draggable = true;
+                checkboxWrapper.addEventListener('mouseenter', disableDrag); checkboxWrapper.addEventListener('mouseleave', enableDrag);
+                deleteBtn.addEventListener('mouseenter', disableDrag); deleteBtn.addEventListener('mouseleave', enableDrag);
+                
+                checkboxWrapper.addEventListener('click', (e) => {
+                    e.stopPropagation(); playPop(); li.classList.add('completed', 'jelly-pop');
+                    setTimeout(() => { 
+                        const t = tasks.find(x => x.id === task.id); 
+                        if(t) { 
+                            if(t.recurring && t.targetTime) {
+                                const historyClone = {...t, id: Date.now() + Math.random(), completed: true, recurring: false};
+                                tasks.push(historyClone); t.targetTime += 86400000; t.alerted = false; t.createdAt = Date.now(); 
+                            } else { t.completed = true; }
+                            saveAndRender(); 
+                        } 
+                    }, 500);
+                });
+
+                deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); tasks = tasks.filter(t => t.id !== task.id); saveAndRender(); });
+
+                const textEl = li.querySelector('.task-text');
+                textEl.addEventListener('dblclick', (e) => {
+                    e.stopPropagation(); li.draggable = false; 
+                    const input = document.createElement('textarea');
+                    input.className = 'edit-task-input';
+                    input.style.resize = 'none';
+                    input.value = task.text;
+                    textEl.replaceWith(input);
+                    input.focus();
+                    
+                    const saveEdit = () => {
+                        li.draggable = true; 
+                        if (input.value.trim() && input.value.trim() !== task.text) {
+                            task.text = input.value.trim();
+                            const parsed = parseTaskTime(task.text);
+                            task.targetTime = parsed.targetTime; task.recurring = parsed.isRecurring;
+                            task.alerted = false; task.createdAt = Date.now(); 
+                        }
+                        saveAndRender();
+                    };
+                    input.addEventListener('blur', saveEdit);
+                    input.addEventListener('keypress', (ev) => { if(ev.key === 'Enter') { ev.preventDefault(); input.blur(); } });
+                });
+
+                li.addEventListener('dragstart', () => { setTimeout(() => li.classList.add('dragging'), 0); });
+                li.addEventListener('dragend', () => { li.classList.remove('dragging'); });
+                
+                taskListEl.appendChild(li);
+            });
+            updateOverallProgress();
+            if (needsSave) localStorage.setItem('canvas_todo_tasks_notime', JSON.stringify(tasks));
+        }
+
+        function renderMinimalistTasks() {
+            const miniTaskListEl = document.getElementById('miniTaskList');
+            if (!miniTaskListEl) return;
+            miniTaskListEl.innerHTML = '';
+            const now = Date.now();
+            let needsSave = false;
+
+            if (tasks.length === 0) {
+                miniTaskListEl.innerHTML = `<div class="empty-state">🍃 暂无日程</div>`;
+                return;
+            }
+
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'task-item glare-effect' + (task.completed ? ' completed' : '');
+                li.dataset.id = task.id;
+
+                let timeHtml = '';
+                if (task.targetTime) {
+                    if (now >= task.targetTime) {
+                        timeHtml = `<span class="mini-badge-orange triggered"><i class="ph-bold ph-bell"></i> 已到时</span>`;
+                        if (!task.alerted) { playDing(); task.alerted = true; needsSave = true; }
+                    } else {
+                        const diffMins = Math.floor((task.targetTime - now) / 60000);
+                        let timeStr = '';
+                        if (diffMins > 24 * 60) {
+                            const days = Math.floor(diffMins / 1440);
+                            const hours = Math.floor((diffMins % 1440) / 60);
+                            timeStr = `还有${days}天${hours > 0 ? hours + '小时' : ''}`;
+                        } else if (diffMins > 60) {
+                            const hours = Math.floor(diffMins / 60);
+                            const mins = diffMins % 60;
+                            timeStr = `还有${hours}小时${mins > 0 ? mins + '分' : ''}`;
+                        } else {
+                            timeStr = `还有${diffMins}分钟`;
+                        }
+                        timeHtml = `<span class="mini-badge-orange">${timeStr}</span>`;
+                    }
+                } else if (task.recurring) {
+                    timeHtml = `<span class="mini-badge-orange"><i class="ph-bold ph-arrows-clockwise"></i> 每日循环</span>`;
+                }
+
+                li.innerHTML = `
+                    <div class="checkbox-wrapper"><div class="checkbox"><i class="ph-bold ph-check check-icon"></i></div></div>
+                    <div class="task-content"><div class="task-text">${task.text}</div></div>
+                    ${timeHtml}
+                    <div class="delete-btn" title="彻底删除"><i class="ph ph-trash"></i></div>
+                `;
+                bindGlareEffect(li);
+
+                const checkboxWrapper = li.querySelector('.checkbox-wrapper');
+                checkboxWrapper.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    playPop();
+                    task.completed = !task.completed; 
+                    if (task.completed && task.recurring && task.targetTime) {
+                        const historyClone = {...task, id: Date.now() + Math.random(), completed: true, recurring: false};
+                        tasks.push(historyClone);
+                        task.targetTime += 86400000;
+                        task.alerted = false;
+                        task.createdAt = Date.now();
+                    }
+                    saveAndRender();
+                });
+
+                const deleteBtn = li.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    tasks = tasks.filter(t => t.id !== task.id);
+                    saveAndRender();
+                });
+
+                const textEl = li.querySelector('.task-text');
+                textEl.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    const input = document.createElement('textarea');
+                    input.className = 'edit-task-input';
+                    input.style.resize = 'none';
+                    input.value = task.text;
+                    textEl.replaceWith(input);
+                    input.focus();
+                    
+                    const saveEdit = () => {
+                        if (input.value.trim() && input.value.trim() !== task.text) {
+                            task.text = input.value.trim();
+                            const parsed = parseTaskTime(task.text);
+                            task.targetTime = parsed.targetTime;
+                            task.recurring = parsed.isRecurring;
+                            task.alerted = false;
+                            task.createdAt = Date.now();
+                        }
+                        saveAndRender();
+                    };
+                    input.addEventListener('blur', saveEdit);
+                    input.addEventListener('keypress', (ev) => { if(ev.key === 'Enter') { ev.preventDefault(); input.blur(); } });
+                });
+
+                miniTaskListEl.appendChild(li);
+            });
+
+            if (needsSave) localStorage.setItem('canvas_todo_tasks_notime', JSON.stringify(tasks));
+        }
+
+        taskListEl.addEventListener('dragover', e => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(taskListEl, e.clientY);
+            const draggable = document.querySelector('.dragging');
+            if(draggable) {
+                if (afterElement == null) taskListEl.appendChild(draggable); else taskListEl.insertBefore(draggable, afterElement);
+            }
+        });
+        
+        taskListEl.addEventListener('drop', e => {
+            const currentIds = Array.from(taskListEl.querySelectorAll('.task-item')).map(item => parseInt(item.dataset.id));
+            const activeTasks = currentIds.map(id => tasks.find(t => t.id === id)).filter(t => t);
+            const completedTasks = tasks.filter(t => t.completed);
+            tasks = [...activeTasks, ...completedTasks];
+            saveAndRender();
+        });
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.task-item:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) return { offset: offset, element: child }; else return closest;
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        setInterval(() => { renderTasks(); renderMinimalistTasks(); }, 15000);
+
+        function renderHistoryTasks() {
+            historyListEl.innerHTML = '';
+            const completedTasks = tasks.filter(t => t.completed);
+            if (completedTasks.length === 0) { historyListEl.innerHTML = `<div class="empty-gallery"><i class="ph ph-wind" style="font-size: 32px;"></i><span>空空如也，暂无已完成的历史</span></div>`; return; }
+            completedTasks.forEach(task => {
+                const li = document.createElement('li'); li.className = 'task-item completed';
+                li.innerHTML = `<div class="checkbox-wrapper"><div class="checkbox"><i class="ph-bold ph-check check-icon"></i></div></div><div class="task-content"><div class="task-text">${task.text}</div></div><div class="delete-btn" title="彻底删除"><i class="ph ph-trash"></i></div>`;
+                li.addEventListener('click', (e) => {
+                    if (e.target.closest('.delete-btn')) { tasks = tasks.filter(t => t.id !== task.id); saveAndRender(); return; }
+                    const t = tasks.find(t => t.id === task.id); 
+                    if(t) { t.completed = false; saveAndRender(); }
+                });
+                historyListEl.appendChild(li);
+            });
+            updateOverallProgress();
+        }
+
+        function saveAndRender() { 
+            localStorage.setItem('canvas_todo_tasks_notime', JSON.stringify(tasks)); 
+            renderTasks(); 
+            renderMinimalistTasks();
+            if(historyModal.classList.contains('show')) { renderHistoryTasks(); }
+        }
+        
+        addTaskBtn.addEventListener('click', (e) => {
+            if (inputContainer.classList.contains('show')) { 
+                inputContainer.classList.remove('show'); 
+            } else { 
+                inputContainer.classList.add('show'); 
+                taskInput.focus(); 
+            }
+        });
+        
+        taskInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (taskInput.value.trim() === '') {
+                    inputContainer.classList.remove('show');
+                }
+            }, 100); 
+        });
+        
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const text = taskInput.value.trim();
+                if (text) { 
+                    playPop(); 
+                    const parsed = parseTaskTime(text);
+                    tasks.unshift({ 
+                        id: Date.now(), text: text, completed: false, createdAt: Date.now(),
+                        targetTime: parsed.targetTime, recurring: parsed.isRecurring, alerted: false
+                    }); 
+                    taskInput.value = ''; inputContainer.classList.remove('show'); saveAndRender(); setTimeout(() => document.getElementById('listContainer').scrollTop = 0, 50); 
+                }
+            }
+        });
+
+        const miniAddTaskBtn = document.getElementById('miniAddTaskBtn');
+        const miniInputContainer = document.getElementById('miniInputContainer');
+        const miniTaskInput = document.getElementById('miniTaskInput');
+
+        miniAddTaskBtn.addEventListener('click', () => {
+            if (miniInputContainer.classList.contains('show')) {
+                miniInputContainer.classList.remove('show');
+            } else {
+                miniInputContainer.classList.add('show');
+                miniTaskInput.focus();
+            }
+        });
+
+        miniTaskInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (miniTaskInput.value.trim() === '') {
+                    miniInputContainer.classList.remove('show');
+                }
+            }, 100);
+        });
+
+        miniTaskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const text = miniTaskInput.value.trim();
+                if (text) {
+                    playPop();
+                    const parsed = parseTaskTime(text);
+                    tasks.unshift({
+                        id: Date.now(), text: text, completed: false, createdAt: Date.now(),
+                        targetTime: parsed.targetTime, recurring: parsed.isRecurring, alerted: false
+                    });
+                    miniTaskInput.value = '';
+                    miniInputContainer.classList.remove('show');
+                    saveAndRender();
+                    setTimeout(() => document.getElementById('miniListContainer').scrollTop = 0, 50);
+                }
+            }
+        });
+        
+        renderTasks();
+        renderMinimalistTasks();
+    </script>
+</body>
+</html>
