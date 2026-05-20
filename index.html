@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>高颜值极简待办</title>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web"></script>
+    <!-- 引入 SheetJS 库，用于直接在本地解析 Excel/CSV 格式的表格文件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>const { ipcRenderer } = require('electron');</script>
     <style>
-        /* ================= 基础重置 ================= */
         body, html {
             margin: 0; padding: 0; width: 100vw; height: 100vh;
             background: transparent !important; overflow: hidden;
@@ -14,14 +15,12 @@
             color: #ffffff; user-select: none;
         }
 
-        /* ================= 🌟 3D 物理级翻转核心 ================= */
         .flip-container { width: 100%; height: 100%; perspective: 1200px; }
         .widget-flipper {
             width: 100%; height: 100%; position: relative;
             transition: opacity 0.3s ease;
         }
 
-        /* 🌟 核心修改：限定在 front/back 内部隐藏，不影响历史归档 */
         .flip-container.hide-flipper .widget-flipper .header,
         .flip-container.hide-flipper .widget-flipper .input-container,
         .flip-container.hide-flipper .widget-flipper .list-container,
@@ -33,7 +32,6 @@
             transition: opacity 0.3s ease;
         }
 
-        /* ================= 通用面板 ================= */
         .widget-front, .widget-back {
             width: 100%; height: 100%; position: absolute; top: 0; left: 0;
             background: rgba(15, 25, 20, 0.25); 
@@ -60,7 +58,6 @@
         body.pomodoro-active .focus-overlay { opacity: 1; }
         .header, .input-container, .list-container, .word-footer, .note-wrapper { position: relative; z-index: 10; }
 
-        /* 光影特效 */
         .glare-effect { position: relative; overflow: hidden; border-radius: inherit; }
         .glare-effect::before {
             content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
@@ -70,7 +67,6 @@
         .glare-effect:hover::before { opacity: 1; }
         .glare-effect > * { position: relative; z-index: 2; } 
 
-        /* ================= 顶部导航 ================= */
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 6px; position: relative; }
         .header-left { display: flex; align-items: flex-start; flex: 1; min-width: 0; position: relative; z-index: 20; }
         
@@ -80,7 +76,6 @@
         }
         .header:hover .header-right { opacity: 1; visibility: visible; }
 
-        /* 标题与进度环排版 */
         .title-group { display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; width: 100%; gap: 6px; }
         .title-wrapper { display: flex; align-items: center; gap: 8px; width: 100%; }
         
@@ -92,9 +87,10 @@
 
         .title {
             width: 100%; background: transparent; border: none; color: #ffffff; font-size: 20px; font-weight: bold; 
-            letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); padding: 2px 0px; margin: 0;
+            letter-spacing: 0.5px; padding: 2px 0px; margin: 0;
             border-radius: 6px; outline: none; transition: background 0.2s; font-family: inherit;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; 
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 2px 10px rgba(0, 0, 0, 0.45);
         }
 
         .pill-style {
@@ -113,17 +109,24 @@
 
         .icon-btn {
             display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px;
-            background: rgba(255, 255, 255, 0.08); color: white; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 16px; 
+            background: rgba(255, 255, 255, 0.08); color: white; cursor: pointer; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s; 
+            font-size: 16px; 
             will-change: transform;
         }
-        .icon-btn:hover { background: rgba(255, 255, 255, 0.18); transform: scale(1.05); }
-        .icon-btn:active { transform: scale(0.85); opacity: 0.8; }
+        .icon-btn:hover { 
+            background: rgba(255, 255, 255, 0.18); 
+            transform: translateY(-1.5px) scale3d(1.08, 1.08, 1); 
+        }
+        .icon-btn:active { 
+            transform: scale3d(0.9, 0.9, 1); 
+            opacity: 0.8; 
+        }
         .icon-btn.pinned-active, .icon-btn.pomodoro-running { 
             background: rgba(255, 255, 255, 0.25); color: #4ade80; 
             box-shadow: 0 0 10px rgba(74, 222, 128, 0.3); 
         }
 
-        /* ================= 任务区域与输入框 ================= */
         .input-container { overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-height: 0; opacity: 0; margin-bottom: 0; transform: translateY(-5px); }
         .input-container.show { max-height: 50px; opacity: 1; margin-bottom: 12px; transform: translateY(0); }
         .task-input {
@@ -152,17 +155,30 @@
         .task-progress { position: absolute; bottom: 0; left: 0; height: 2px; border-radius: 0 0 0 12px; transition: width 1s linear; }
 
         .checkbox-wrapper { position: relative; width: 22px; height: 22px; margin-right: 12px; flex-shrink: 0; cursor: pointer; }
-        .checkbox { width: 18px; height: 18px; position: absolute; top: 2px; left: 2px; border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 5px; box-sizing: border-box; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); display: flex; justify-content: center; align-items: center; }
-        .checkbox-wrapper:active .checkbox { transform: scale(0.85); } 
+        .checkbox { 
+            width: 18px; height: 18px; position: absolute; top: 2px; left: 2px; 
+            border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 5px; box-sizing: border-box; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s, background-color 0.2s; 
+            display: flex; justify-content: center; align-items: center; 
+        }
+        .checkbox-wrapper:hover .checkbox { transform: scale3d(1.1, 1.1, 1); border-color: #ffffff; } 
+        .checkbox-wrapper:active .checkbox { transform: scale3d(0.85, 0.85, 1); } 
         .task-item.completed .checkbox { background: #ffffff; border-color: #ffffff; }
-        .check-icon { color: #1a2f22; font-size: 12px; font-weight: bold; opacity: 0; transform: scale(0.5); transition: all 0.2s; }
-        .task-item.completed .check-icon { opacity: 1; transform: scale(1); }
+        
+        .check-icon { 
+            color: #1a2f22; font-size: 12px; font-weight: bold; opacity: 0; 
+            transform: scale3d(0.5, 0.5, 1); 
+            transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1.2), opacity 0.2s; 
+        }
+        .task-item.completed .check-icon { opacity: 1; transform: scale3d(1, 1, 1); }
 
         .task-content { flex: 1; display: flex; align-items: center; min-width: 0; padding-right: 8px; cursor: default; }
+        
         .task-text { 
             font-size: 14.5px; font-weight: 500; color: rgba(255, 255, 255, 0.95); letter-spacing: 0.5px; 
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4); width: 100%; line-height: 1.4;
+            width: 100%; line-height: 1.4;
             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; word-break: break-all;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 2px 10px rgba(0, 0, 0, 0.45);
         }
         .task-item.completed .task-text { text-decoration: line-through; color: rgba(255, 255, 255, 0.4); text-shadow: none; }
         
@@ -173,7 +189,6 @@
         .delete-btn:hover { color: #ff5252; background: rgba(255, 82, 82, 0.1); }
         .delete-btn:active { transform: scale(0.85); }
 
-        /* ================= 草稿与底部 ================= */
         .note-wrapper { flex: 1; display: flex; position: relative; min-height: 0; width: 100%; margin-bottom: 12px; }
         .note-area { flex: 1; width: 100%; background: transparent; border: none; outline: none; color: rgba(255, 255, 255, 0.9); font-family: inherit; font-size: 14.5px; line-height: 1.6; resize: none; padding-right: 6px; margin-right: -6px; margin-bottom: 0; transition: opacity 0.2s ease; }
         .note-area::placeholder { color: rgba(255, 255, 255, 0.3); }
@@ -189,17 +204,26 @@
 
         .word-footer { position: relative; z-index: 50; margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.15); display: flex; align-items: flex-start; gap: 8px; }
         .word-footer i.ph-translate { font-size: 20px; opacity: 0.8; margin-top: 6px; color: #4ade80; }
-        .word-text-box { flex: 1; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; justify-content: center; min-width: 0; border-radius: 8px;}
-        .word-text-box:hover { transform: translateY(-2px); }
-        .word-text-box:active { transform: scale(0.98); }
+        
+        .word-text-box { 
+            flex: 1; cursor: pointer; display: flex; flex-direction: column; justify-content: center; min-width: 0; border-radius: 8px;
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            will-change: transform;
+        }
+        .word-text-box:hover { transform: translateY(-1.5px); }
+        .word-text-box:active { transform: scale3d(0.98, 0.98, 1); }
         .blurred-translation { filter: blur(5px); opacity: 0.4; transition: all 0.3s ease; user-select: none; }
         
-        .footer-btn { cursor: pointer; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 18px; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; }
-        .footer-btn:hover { background: rgba(255, 255, 255, 0.2); color: #4ade80; transform: scale(1.05); }
-        .footer-btn:active { transform: scale(0.85); opacity: 0.8; } 
+        .footer-btn { 
+            cursor: pointer; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s; 
+            font-size: 18px; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; 
+            will-change: transform;
+        }
+        .footer-btn:hover { background: rgba(255, 255, 255, 0.2); color: #4ade80; transform: translateY(-1px) scale3d(1.06, 1.06, 1); }
+        .footer-btn:active { transform: scale3d(0.9, 0.9, 1); opacity: 0.8; } 
         .eye-hidden { color: #4ade80 !important; }
 
-        /* ================= 悬浮 Modal (壁纸库等) ================= */
        .gallery-modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(30, 35, 40, 0.75); 
@@ -207,7 +231,9 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05); 
             z-index: 999; display: flex; flex-direction: column; padding: 20px; opacity: 0; pointer-events: none; 
-            transition: all 0.3s ease; box-sizing: border-box; border-radius: 16px; overflow: hidden;
+            transition: opacity 0.15s ease; 
+            box-sizing: border-box; border-radius: 16px; overflow: hidden;
+            will-change: opacity;
         }
         .gallery-modal.show { opacity: 1; pointer-events: auto; }
         .gallery-header { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: bold; margin-bottom: 16px; color: #ffffff; letter-spacing: 1px; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
@@ -218,6 +244,8 @@
             display: grid; grid-template-columns: repeat(2, 1fr); 
             grid-auto-rows: max-content; gap: 12px; overflow-y: auto; overflow-x: hidden !important; 
             flex: 1; padding-right: 4px; width: 100%; box-sizing: border-box; 
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
         }
         .gallery-grid::-webkit-scrollbar { width: 4px; }
         .gallery-grid::-webkit-scrollbar-track { background: transparent; }
@@ -228,6 +256,8 @@
             border-radius: 10px; position: relative; background-size: cover !important; background-position: center !important; 
             cursor: pointer; border: 2px solid rgba(255,255,255,0.1); transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); 
             box-shadow: 0 4px 15px rgba(0,0,0,0.4); overflow: hidden;
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
         }
         .gallery-item:hover { transform: scale(1.02); border-color: rgba(255,255,255,0.6); }
         .gallery-item:active { transform: scale(0.95); }
@@ -241,7 +271,6 @@
         .theme-label { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 12px; color: white; text-shadow: 0 1px 4px rgba(0,0,0,0.8); background: rgba(0,0,0,0.4); padding: 4px 0; pointer-events: none; }
         .empty-gallery { grid-column: span 2; text-align: center; color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 
-        /* ================= 🌟 极简风格专属样式 ================= */
         .minimalist-container {
             display: none;
             flex-direction: column;
@@ -249,9 +278,8 @@
             width: 100%;
         }
 
-        /* 极简模式激活状态 (严格限定隐藏 front 里的元素，绝对不影响 back 里的草稿纸！) */
         body.minimalist-mode .widget-front {
-            background: rgba(15, 20, 25, 0.4) !important; /* 黑透 */
+            background: rgba(15, 20, 25, 0.4) !important; 
             padding: 0 !important;
             overflow: hidden;
         }
@@ -265,19 +293,17 @@
             display: flex;
         }
 
-        /* 极简顶部标题与深色背景隔离 */
         .mini-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(10, 15, 20, 0.55); /* 区标题深色 */
+            background: rgba(10, 15, 20, 0.55); 
             padding: 14px 18px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             border-top-left-radius: 16px;
             border-top-right-radius: 16px;
         }
         
-        /* 可编辑日程标题 */
         .mini-title-input {
             background: transparent;
             border: none;
@@ -286,7 +312,7 @@
             font-weight: bold;
             letter-spacing: 1.5px;
             outline: none;
-            width: 150px; /* 预留合理的编辑宽度 */
+            width: 150px; 
             padding: 2px 0;
             box-sizing: border-box;
             text-shadow: 0 1px 2px rgba(0,0,0,0.5);
@@ -297,24 +323,25 @@
             align-items: center;
             gap: 12px;
         }
+        
         .mini-icon-btn {
             cursor: pointer;
             color: rgba(255, 255, 255, 0.7);
             font-size: 16px;
-            transition: color 0.2s, transform 0.2s;
+            transition: color 0.2s, transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex;
             align-items: center;
             justify-content: center;
+            will-change: transform;
         }
         .mini-icon-btn:hover {
             color: #ffffff;
-            transform: scale(1.1);
+            transform: translateY(-1px) scale3d(1.1, 1.1, 1);
         }
         .mini-icon-btn:active {
-            transform: scale(0.9);
+            transform: scale3d(0.9, 0.9, 1);
         }
 
-        /* 极简新增任务输入框 */
         .mini-input-container {
             max-height: 0;
             opacity: 0;
@@ -334,12 +361,11 @@
         }
         .mini-task-input::placeholder { color: rgba(255, 255, 255, 0.35); }
 
-        /* 极简任务列表浅色背景 */
         .mini-list-container {
             flex: 1;
             overflow-y: auto;
             padding: 12px 18px;
-            background: rgba(255, 255, 255, 0.02); /* 任务区域浅色 */
+            background: rgba(255, 255, 255, 0.02); 
             border-bottom-left-radius: 16px;
             border-bottom-right-radius: 16px;
         }
@@ -347,7 +373,6 @@
         .mini-list-container::-webkit-scrollbar-track { background: transparent; }
         .mini-list-container::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
 
-        /* 极简风格专属卡片覆盖 */
         .minimalist-container .task-list {
             display: flex;
             flex-direction: column;
@@ -364,23 +389,21 @@
         .minimalist-container .task-item:last-child {
             border-bottom: none !important;
         }
-        /* 🌟 勾选框：完全恢复为系统默认风格与尺寸，仅保留扁平直角，无多余色彩干扰 */
         .minimalist-container .checkbox {
             border-radius: 4px !important;
         }
         .minimalist-container .task-text {
             font-size: 13.5px !important;
-            font-weight: 500 !important; /* 字体增加比重，提高清晰度 */
-            color: rgba(255, 255, 255, 0.98) !important; /* 极简未完成字体更加明亮 */
+            font-weight: 500 !important; 
+            color: rgba(255, 255, 255, 0.98) !important; 
             text-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
         }
         .minimalist-container .task-item.completed .task-text {
             text-decoration: line-through !important;
-            color: rgba(255, 255, 255, 0.55) !important; /* 🌟 划掉字体更亮一个度，保持易读美观 */
+            color: rgba(255, 255, 255, 0.55) !important; 
             text-shadow: none !important;
         }
 
-        /* 浅橙色时间胶囊 */
         .mini-badge-orange {
             background: rgba(217, 119, 6, 0.15) !important;
             color: #fb923c !important;
@@ -406,7 +429,6 @@
 <body>
     <div class="flip-container" id="flipContainer">
         <div class="widget-flipper">
-            <!-- 正面：待办区 -->
             <div class="widget-front" id="mainWidget">
                 <div class="focus-overlay"></div>
 
@@ -456,10 +478,8 @@
                     <div class="footer-btn class-import-trigger" title="导入词库"><i class="ph ph-upload-simple"></i></div>
                 </div>
 
-                <!-- 🌟 极简风格布局容器 -->
                 <div class="minimalist-container" id="minimalistContainer">
                     <div class="mini-header">
-                        <!-- 🌟 支持重命名、可编辑的日程标题 -->
                         <input type="text" class="mini-title-input" id="miniTitleInput" spellcheck="false" autocomplete="off" value="日程">
                         <div class="mini-header-right">
                             <div class="mini-icon-btn" id="miniLockBtn" title="固定窗口"><i class="ph-bold ph-lock-open"></i></div>
@@ -476,7 +496,6 @@
                 </div>
             </div>
 
-            <!-- 背面：草稿纸 -->
             <div class="widget-back" id="noteWidget">
                 <div class="focus-overlay"></div>
                 
@@ -491,7 +510,6 @@
                     </div>
                     <div class="header-right">
                         <div class="icon-btn" id="clearNoteBtn" title="一键清空草稿"><i class="ph ph-trash"></i></div>
-                        <!-- 🌟 按照要求：草稿纸中已彻底移除了更换壁纸的调色盘按钮，保证只能在主界面修改外观，防止逻辑冲突 -->
                         <div class="icon-btn" id="flipToTodoBtn" title="返回待办"><i class="ph ph-check-square"></i></div>
                         <div class="icon-btn pinBtn" title="点击固定在桌面上层"><i class="ph ph-push-pin"></i></div>
                     </div>
@@ -535,26 +553,23 @@
         </div>
     </div>
 
-    <input type="file" id="wordFileInput" accept=".txt" style="display: none;">
+    <!-- 扩展 input 的接收类型，允许上传表格格式 -->
+    <input type="file" id="wordFileInput" accept=".txt,.xlsx,.xls,.csv" style="display: none;">
     <input type="file" id="customImageInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
 
     <script>
         document.body.addEventListener('mouseenter', () => { if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('window-enter'); });
         document.body.addEventListener('mouseleave', () => { if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('window-leave'); });
 
-        // ==========================================
-        // 🚀 全新纯 JS 指针捕获物理拖拽引擎 (极致丝滑稳定+高帧率优化版)
-        // ==========================================
         let isAppDragging = false;
         let dragTarget = null; 
-        let dragAnimationFrame = null; // 用于防卡顿的帧率同步变量
+        let dragAnimationFrame = null; 
         let latestScreenX = 0;
         let latestScreenY = 0;
         
         document.addEventListener('pointerdown', (e) => {
             if (e.button !== 0) return; 
 
-            // 🌟 排除极简挂载控制及容器内操作，避免拖动干扰
             if (e.target.closest('.icon-btn, .mini-icon-btn, input, textarea, .list-container, .mini-list-container, .gallery-grid, .close-btn, .progress-wrapper, .draft-add-btn, .word-text-box, .pill-style')) {
                 return;
             }
@@ -600,9 +615,6 @@
             if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('drag-end');
         });
 
-        // ==========================================
-        // 🌟 唤起原生级系统右键菜单 (绝对安全)
-        // ==========================================
         document.addEventListener('contextmenu', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; 
             e.preventDefault();
@@ -610,8 +622,6 @@
                 ipcRenderer.send('show-context-menu');
             }
         });
-
-        // ------------------------------------------
 
         function bindGlareEffect(el) {
             el.addEventListener('mousemove', e => {
@@ -626,7 +636,10 @@
 
         const themePresets = [
             { name: "经典黑透", bg: "rgba(15, 25, 20, 0.25)", border: "rgba(255, 255, 255, 0.1)", filter: "blur(12px)" },
-            { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" } 
+            { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" },
+            { name: "深海猎人", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/a117deab789a8be09d0c6fcb058d4e0466857ad2.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" },
+            { name: "星河幻想", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/7847d3719fb08de3e86de89990f7ed5eab8ef1ee.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" },
+            { name: "幻星之愿", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/3538b2f3b8899b8f95161f4f0a6807433493083985480649.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" }
         ];
         
         let customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
@@ -634,6 +647,10 @@
         let isMinimalistLayout = localStorage.getItem('canvas_todo_minimalist_layout') === 'true';
 
         function applyTheme() {
+            currentThemeIndex = parseInt(localStorage.getItem('canvas_todo_theme')) || 0;
+            customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
+            isMinimalistLayout = localStorage.getItem('canvas_todo_minimalist_layout') === 'true';
+
             if (isMinimalistLayout) {
                 document.body.classList.add('minimalist-mode');
                 if (typeof ipcRenderer !== 'undefined') {
@@ -651,9 +668,12 @@
             const theme = totalThemes[currentThemeIndex];
             const frontEl = document.getElementById('mainWidget');
             const backEl = document.getElementById('noteWidget');
+
             [frontEl, backEl].forEach(el => {
-                el.style.background = theme.bg; el.style.backgroundSize = theme.size || "auto"; el.style.backgroundPosition = "center";
-                el.style.borderColor = theme.border; el.style.backdropFilter = theme.filter; el.style.webkitBackdropFilter = theme.filter;
+                if (el) {
+                    el.style.background = theme.bg; el.style.backgroundSize = theme.size || "auto"; el.style.backgroundPosition = "center";
+                    el.style.borderColor = theme.border; el.style.backdropFilter = theme.filter; el.style.webkitBackdropFilter = theme.filter;
+                }
             });
         }
         
@@ -684,7 +704,6 @@
             uploadDiv.onclick = () => customImageInput.click();
             galleryGrid.appendChild(uploadDiv);
 
-            // 极简款式卡片渲染
             const miniDiv = document.createElement('div');
             miniDiv.className = 'gallery-item' + (isMinimalistLayout ? ' active-item' : '');
             miniDiv.style.background = "rgba(15, 20, 25, 0.4)";
@@ -750,7 +769,7 @@
             if (file.path) {
                 customThemes.push({
                     name: `自定壁纸`,
-                    bg: `linear-gradient(rgba(10, 15, 20, 0.65), rgba(10, 15, 20, 0.65)), url('file:///${file.path.replace(/\\/g, '/')}')`,
+                    bg: `linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('file:///${file.path.replace(/\\/g, '/')}')`,
                     border: "rgba(255, 255, 255, 0.2)", filter: "blur(6px)", size: "cover"
                 });
                 localStorage.setItem('canvas_todo_custom_themes', JSON.stringify(customThemes));
@@ -932,27 +951,102 @@
         document.querySelectorAll('.class-speak-trigger').forEach(btn => btn.addEventListener('click', () => playAudio(currentWordText)));
 
         const wordFileInput = document.getElementById('wordFileInput');
-        document.querySelectorAll('.class-import-trigger').forEach(btn => btn.addEventListener('click', () => wordFileInput.click())); 
-        wordFileInput.addEventListener('change', (e) => {
+        document.querySelectorAll('.class-import-trigger').forEach(btn => {
+            btn.addEventListener('click', () => wordFileInput.click());
+        }); 
+        
+        // 升级版：智能多格式单词导入逻辑 (支持 TXT、XLSX、XLS 和 CSV)
+        wordFileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const newCustomWords = [];
-                event.target.result.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
-                    if (line.includes('|')) {
-                        const parts = line.split('|').map(p => p.trim());
-                        newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
-                    } else {
-                        const cnIndex = line.search(/[\u4e00-\u9fa5]/);
-                        if (cnIndex !== -1) newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
+            const fileName = file.name.toLowerCase();
+
+            // 如果上传的是表格文件，则直接通过集成逻辑进行转换和提取
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = new Uint8Array(event.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+                        let startRow = 0;
+                        let wordIdx = 2, phoneIdx = 3, posIdx = 4, meanIdx = 5;
+
+                        // 自动定位表头位置，保证在轻微的列偏差下解析不崩
+                        for (let i = 0; i < rows.length; i++) {
+                            const rowStrings = rows[i].map(c => String(c).trim());
+                            if (rowStrings.includes("单词") || rowStrings.includes("音标")) {
+                                startRow = i + 1;
+                                if (rowStrings.indexOf("单词") !== -1) wordIdx = rowStrings.indexOf("单词");
+                                if (rowStrings.indexOf("音标") !== -1) phoneIdx = rowStrings.indexOf("音标");
+                                if (rowStrings.indexOf("词性") !== -1) posIdx = rowStrings.indexOf("词性");
+                                if (rowStrings.indexOf("中文意思") !== -1) meanIdx = rowStrings.indexOf("中文意思");
+                                break;
+                            }
+                        }
+
+                        const newCustomWords = [];
+                        for (let i = startRow; i < rows.length; i++) {
+                            let row = rows[i];
+                            if (!row || row.length === 0) continue;
+
+                            let word = String(row[wordIdx] || "").trim();
+                            let phonetic = String(row[phoneIdx] || "").trim();
+                            let pos = String(row[posIdx] || "").trim();
+                            let meaning = String(row[meanIdx] || "").trim();
+
+                            // 清洗多余的引号和修饰符
+                            meaning = meaning.replace(/^"|"$/g, '').trim();
+
+                            if (word && word !== "单词" && word !== "nan") {
+                                let pos_meaning = `${pos} ${meaning}`.trim();
+                                newCustomWords.push({
+                                    word: word,
+                                    phonetic: phonetic,
+                                    trans: pos_meaning
+                                });
+                            }
+                        }
+
+                        if (newCustomWords.length > 0) {
+                            localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); 
+                            localStorage.setItem('todo_word_index', '0'); 
+                            alert(`已一键转换并成功导入 ${newCustomWords.length} 个表格单词！`); 
+                            updateWord(true); 
+                        } else {
+                            alert("未能在表格中识别出有效单词数据。");
+                        }
+                    } catch (err) {
+                        alert("解析表格文件出错：" + err.message);
                     }
-                });
-                if (newCustomWords.length > 0) {
-                    localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
-                    alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
-                }
-            };
-            reader.readAsText(file, 'utf-8'); e.target.value = ''; 
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                // 如果上传的是经典的 TXT，则遵循原生的常规文本提取逻辑
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const newCustomWords = [];
+                    event.target.result.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
+                        if (line.includes('|')) {
+                            const parts = line.split('|').map(p => p.trim());
+                            newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
+                        } else {
+                            const cnIndex = line.search(/[\u4e00-\u9fa5]/);
+                            if (cnIndex !== -1) newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
+                        }
+                    });
+                    if (newCustomWords.length > 0) {
+                        localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
+                        alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
+                    } else {
+                        alert("未能在文本中识别出有效单词数据。");
+                    }
+                };
+                reader.readAsText(file, 'utf-8');
+            }
+            e.target.value = ''; 
         });
 
         updateWord(false);
@@ -1041,7 +1135,6 @@
             } else {
                 mainWidget.classList.remove('pinned'); noteWidget.classList.remove('pinned');
                 pinBtns.forEach(btn => { btn.classList.remove('pinned-active'); });
-                // 🌟 修复 Bug：统一改变 lock 状态，不使用暴力 innerHTML 重构，保留绑定
                 const miniLockIcon = document.querySelector('#miniLockBtn i');
                 if (miniLockIcon) {
                     miniLockIcon.className = 'ph-bold ph-lock-open';
@@ -1053,14 +1146,12 @@
         updatePinState(); 
         pinBtns.forEach(btn => { btn.addEventListener('click', () => { isPinned = !isPinned; localStorage.setItem('canvas_todo_pinned', isPinned); updatePinState(); }); });
 
-        // 极简版锁按钮绑定相同的 Pin 逻辑
         document.getElementById('miniLockBtn').addEventListener('click', () => {
             isPinned = !isPinned;
             localStorage.setItem('canvas_todo_pinned', isPinned);
             updatePinState();
         });
 
-        // 极简版循环按钮（切换回主界面）
         document.getElementById('miniCycleBtn').addEventListener('click', () => {
             isMinimalistLayout = false;
             localStorage.setItem('canvas_todo_minimalist_layout', 'false');
@@ -1072,7 +1163,6 @@
         appTitle.addEventListener('input', () => localStorage.setItem('canvas_todo_title', appTitle.value));
         appTitle.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); appTitle.blur(); } });
 
-        // 极简风格可编辑日程标题绑定
         const miniTitleInput = document.getElementById('miniTitleInput');
         miniTitleInput.value = localStorage.getItem('canvas_todo_mini_title') || '日程';
         miniTitleInput.addEventListener('input', () => {
@@ -1124,7 +1214,7 @@
             } else if (text.includes('明天') || text.includes('明早') || text.includes('明晚')) { hasDate = true; targetDate.setDate(targetDate.getDate() + 1);
             } else if (text.includes('今天') || text.includes('今早') || text.includes('今晚')) { hasDate = true; }
 
-            let timeMatch = text.match(/(?:(早上|上午|中午|下午|晚上|夜里|凌晨|明早|今早|明晚|今晚)\s*)?(\d+|[原二两三四五六七八九十十一十二]+)(?:点|:|：)(\d+|[一二两三四五六七八九十]+)?(分|半)?/);
+            let timeMatch = text.match(/(?:(早上|上午|中午|下午|晚上|夜里|凌晨|明早|今早|明晚|今晚)\s*)?(\d+|[一二两三四五六七八九十十一十二]+)(?:点|:|：)(\d+|[一二两三四五六七八九十]+)?(分|半)?/);
             if (!timeMatch) timeMatch = text.match(/(早上|上午|中午|下午|晚上|夜里|凌晨|明早|今早|明晚|今晚)?(\d+|[一二两三四五六七八九十十一十二]+)点/);
             
             if (timeMatch) {
@@ -1267,7 +1357,6 @@
             if (needsSave) localStorage.setItem('canvas_todo_tasks_notime', JSON.stringify(tasks));
         }
 
-        // ================= 🌟 极简风格专属渲染引擎 =================
         function renderMinimalistTasks() {
             const miniTaskListEl = document.getElementById('miniTaskList');
             if (!miniTaskListEl) return;
@@ -1322,7 +1411,7 @@
                 checkboxWrapper.addEventListener('click', (e) => {
                     e.stopPropagation();
                     playPop();
-                    task.completed = !task.completed; // 极简模式下切状态保留
+                    task.completed = !task.completed; 
                     if (task.completed && task.recurring && task.targetTime) {
                         const historyClone = {...task, id: Date.now() + Math.random(), completed: true, recurring: false};
                         tasks.push(historyClone);
@@ -1454,7 +1543,6 @@
             }
         });
 
-        // ================= 🌟 极简输入框逻辑绑定 =================
         const miniAddTaskBtn = document.getElementById('miniAddTaskBtn');
         const miniInputContainer = document.getElementById('miniInputContainer');
         const miniTaskInput = document.getElementById('miniTaskInput');
