@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>高颜值极简待办</title>
-   <script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web"></script>
+    <!-- 引入 SheetJS 库，用于直接在本地解析 Excel/CSV 格式的表格文件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>const { ipcRenderer } = require('electron');</script>
     <style>
         body, html {
@@ -551,7 +553,8 @@
         </div>
     </div>
 
-    <input type="file" id="wordFileInput" accept=".txt" style="display: none;">
+    <!-- 扩展 input 的接收类型，允许上传表格格式 -->
+    <input type="file" id="wordFileInput" accept=".txt,.xlsx,.xls,.csv" style="display: none;">
     <input type="file" id="customImageInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
 
     <script>
@@ -633,7 +636,10 @@
 
         const themePresets = [
             { name: "经典黑透", bg: "rgba(15, 25, 20, 0.25)", border: "rgba(255, 255, 255, 0.1)", filter: "blur(12px)" },
-            { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" } 
+            { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" },
+            { name: "深海猎人", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/a117deab789a8be09d0c6fcb058d4e0466857ad2.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" },
+            { name: "星河幻想", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/7847d3719fb08de3e86de89990f7ed5eab8ef1ee.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" },
+            { name: "幻星之愿", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/3538b2f3b8899b8f95161f4f0a6807433493083985480649.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" }
         ];
         
         let customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
@@ -949,26 +955,98 @@
             btn.addEventListener('click', () => wordFileInput.click());
         }); 
         
-        wordFileInput.addEventListener('change', (e) => {
+        // 升级版：智能多格式单词导入逻辑 (支持 TXT、XLSX、XLS 和 CSV)
+        wordFileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const newCustomWords = [];
-                event.target.result.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
-                    if (line.includes('|')) {
-                        const parts = line.split('|').map(p => p.trim());
-                        newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
-                    } else {
-                        const cnIndex = line.search(/[\u4e00-\u9fa5]/);
-                        if (cnIndex !== -1) newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
+            const fileName = file.name.toLowerCase();
+
+            // 如果上传的是表格文件，则直接通过集成逻辑进行转换和提取
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = new Uint8Array(event.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+                        let startRow = 0;
+                        let wordIdx = 2, phoneIdx = 3, posIdx = 4, meanIdx = 5;
+
+                        // 自动定位表头位置，保证在轻微的列偏差下解析不崩
+                        for (let i = 0; i < rows.length; i++) {
+                            const rowStrings = rows[i].map(c => String(c).trim());
+                            if (rowStrings.includes("单词") || rowStrings.includes("音标")) {
+                                startRow = i + 1;
+                                if (rowStrings.indexOf("单词") !== -1) wordIdx = rowStrings.indexOf("单词");
+                                if (rowStrings.indexOf("音标") !== -1) phoneIdx = rowStrings.indexOf("音标");
+                                if (rowStrings.indexOf("词性") !== -1) posIdx = rowStrings.indexOf("词性");
+                                if (rowStrings.indexOf("中文意思") !== -1) meanIdx = rowStrings.indexOf("中文意思");
+                                break;
+                            }
+                        }
+
+                        const newCustomWords = [];
+                        for (let i = startRow; i < rows.length; i++) {
+                            let row = rows[i];
+                            if (!row || row.length === 0) continue;
+
+                            let word = String(row[wordIdx] || "").trim();
+                            let phonetic = String(row[phoneIdx] || "").trim();
+                            let pos = String(row[posIdx] || "").trim();
+                            let meaning = String(row[meanIdx] || "").trim();
+
+                            // 清洗多余的引号和修饰符
+                            meaning = meaning.replace(/^"|"$/g, '').trim();
+
+                            if (word && word !== "单词" && word !== "nan") {
+                                let pos_meaning = `${pos} ${meaning}`.trim();
+                                newCustomWords.push({
+                                    word: word,
+                                    phonetic: phonetic,
+                                    trans: pos_meaning
+                                });
+                            }
+                        }
+
+                        if (newCustomWords.length > 0) {
+                            localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); 
+                            localStorage.setItem('todo_word_index', '0'); 
+                            alert(`已一键转换并成功导入 ${newCustomWords.length} 个表格单词！`); 
+                            updateWord(true); 
+                        } else {
+                            alert("未能在表格中识别出有效单词数据。");
+                        }
+                    } catch (err) {
+                        alert("解析表格文件出错：" + err.message);
                     }
-                });
-                if (newCustomWords.length > 0) {
-                    localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
-                    alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
-                }
-            };
-            reader.readAsText(file, 'utf-8'); e.target.value = ''; 
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                // 如果上传的是经典的 TXT，则遵循原生的常规文本提取逻辑
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const newCustomWords = [];
+                    event.target.result.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
+                        if (line.includes('|')) {
+                            const parts = line.split('|').map(p => p.trim());
+                            newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
+                        } else {
+                            const cnIndex = line.search(/[\u4e00-\u9fa5]/);
+                            if (cnIndex !== -1) newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
+                        }
+                    });
+                    if (newCustomWords.length > 0) {
+                        localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
+                        alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
+                    } else {
+                        alert("未能在文本中识别出有效单词数据。");
+                    }
+                };
+                reader.readAsText(file, 'utf-8');
+            }
+            e.target.value = ''; 
         });
 
         updateWord(false);
