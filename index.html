@@ -3,37 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <title>高颜值极简待办</title>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web"></script>
+    <!-- 引入 SheetJS 库，用于直接在本地解析 Excel/CSV 格式的表格文件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>const { ipcRenderer } = require('electron');</script>
     <style>
-        /* ================= 基础重置 ================= */
         body, html {
             margin: 0; padding: 0; width: 100vw; height: 100vh;
             background: transparent !important; overflow: hidden;
-            font-family: "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif;
             color: #ffffff; user-select: none;
         }
 
-        /* ================= 🌟 3D 物理级翻转核心 ================= */
         .flip-container { width: 100%; height: 100%; perspective: 1200px; }
         .widget-flipper {
             width: 100%; height: 100%; position: relative;
             transition: opacity 0.3s ease;
         }
 
-        /* 🌟 核心修改：限定在 front/back 内部隐藏，不影响历史归档 */
+        /* 添加 .radio-container 和 .minimalist-container 到隐藏列表 */
         .flip-container.hide-flipper .widget-flipper .header,
         .flip-container.hide-flipper .widget-flipper .input-container,
         .flip-container.hide-flipper .widget-flipper .list-container,
+        .flip-container.hide-flipper .widget-flipper .radio-container,
         .flip-container.hide-flipper .widget-flipper .word-footer,
         .flip-container.hide-flipper .widget-flipper .note-wrapper,
-        .flip-container.hide-flipper .widget-flipper .focus-overlay { 
+        .flip-container.hide-flipper .widget-flipper .focus-overlay,
+        .flip-container.hide-flipper .widget-flipper .minimalist-container { 
             opacity: 0 !important; 
             pointer-events: none !important; 
             transition: opacity 0.3s ease;
         }
 
-        /* ================= 通用面板 ================= */
         .widget-front, .widget-back {
             width: 100%; height: 100%; position: absolute; top: 0; left: 0;
             background: rgba(15, 25, 20, 0.25); 
@@ -58,9 +59,8 @@
             transition: opacity 0.8s ease; z-index: 5;
         }
         body.pomodoro-active .focus-overlay { opacity: 1; }
-        .header, .input-container, .list-container, .word-footer, .note-wrapper { position: relative; z-index: 10; }
+        .header, .input-container, .list-container, .radio-container, .word-footer, .note-wrapper { position: relative; z-index: 10; }
 
-        /* 光影特效 */
         .glare-effect { position: relative; overflow: hidden; border-radius: inherit; }
         .glare-effect::before {
             content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
@@ -70,7 +70,6 @@
         .glare-effect:hover::before { opacity: 1; }
         .glare-effect > * { position: relative; z-index: 2; } 
 
-        /* ================= 顶部导航 ================= */
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 6px; position: relative; }
         .header-left { display: flex; align-items: flex-start; flex: 1; min-width: 0; position: relative; z-index: 20; }
         
@@ -80,7 +79,6 @@
         }
         .header:hover .header-right { opacity: 1; visibility: visible; }
 
-        /* 标题与进度环排版 */
         .title-group { display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; width: 100%; gap: 6px; }
         .title-wrapper { display: flex; align-items: center; gap: 8px; width: 100%; }
         
@@ -92,9 +90,10 @@
 
         .title {
             width: 100%; background: transparent; border: none; color: #ffffff; font-size: 20px; font-weight: bold; 
-            letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); padding: 2px 0px; margin: 0;
+            letter-spacing: 0.5px; padding: 2px 0px; margin: 0;
             border-radius: 6px; outline: none; transition: background 0.2s; font-family: inherit;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; 
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 2px 10px rgba(0, 0, 0, 0.45);
         }
 
         .pill-style {
@@ -113,17 +112,24 @@
 
         .icon-btn {
             display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px;
-            background: rgba(255, 255, 255, 0.08); color: white; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 16px; 
+            background: rgba(255, 255, 255, 0.08); color: white; cursor: pointer; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s; 
+            font-size: 16px; 
             will-change: transform;
         }
-        .icon-btn:hover { background: rgba(255, 255, 255, 0.18); transform: scale(1.05); }
-        .icon-btn:active { transform: scale(0.85); opacity: 0.8; }
-        .icon-btn.pinned-active, .icon-btn.pomodoro-running { 
+        .icon-btn:hover { 
+            background: rgba(255, 255, 255, 0.18); 
+            transform: translateY(-1.5px) scale3d(1.08, 1.08, 1); 
+        }
+        .icon-btn:active { 
+            transform: scale3d(0.9, 0.9, 1); 
+            opacity: 0.8; 
+        }
+        .icon-btn.pinned-active, .icon-btn.pomodoro-running, .icon-btn.radio-active { 
             background: rgba(255, 255, 255, 0.25); color: #4ade80; 
             box-shadow: 0 0 10px rgba(74, 222, 128, 0.3); 
         }
 
-        /* ================= 任务区域与输入框 ================= */
         .input-container { overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-height: 0; opacity: 0; margin-bottom: 0; transform: translateY(-5px); }
         .input-container.show { max-height: 50px; opacity: 1; margin-bottom: 12px; transform: translateY(0); }
         .task-input {
@@ -152,17 +158,30 @@
         .task-progress { position: absolute; bottom: 0; left: 0; height: 2px; border-radius: 0 0 0 12px; transition: width 1s linear; }
 
         .checkbox-wrapper { position: relative; width: 22px; height: 22px; margin-right: 12px; flex-shrink: 0; cursor: pointer; }
-        .checkbox { width: 18px; height: 18px; position: absolute; top: 2px; left: 2px; border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 5px; box-sizing: border-box; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); display: flex; justify-content: center; align-items: center; }
-        .checkbox-wrapper:active .checkbox { transform: scale(0.85); } 
+        .checkbox { 
+            width: 18px; height: 18px; position: absolute; top: 2px; left: 2px; 
+            border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 5px; box-sizing: border-box; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s, background-color 0.2s; 
+            display: flex; justify-content: center; align-items: center; 
+        }
+        .checkbox-wrapper:hover .checkbox { transform: scale3d(1.1, 1.1, 1); border-color: #ffffff; } 
+        .checkbox-wrapper:active .checkbox { transform: scale3d(0.85, 0.85, 1); } 
         .task-item.completed .checkbox { background: #ffffff; border-color: #ffffff; }
-        .check-icon { color: #1a2f22; font-size: 12px; font-weight: bold; opacity: 0; transform: scale(0.5); transition: all 0.2s; }
-        .task-item.completed .check-icon { opacity: 1; transform: scale(1); }
+        
+        .check-icon { 
+            color: #1a2f22; font-size: 12px; font-weight: bold; opacity: 0; 
+            transform: scale3d(0.5, 0.5, 1); 
+            transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1.2), opacity 0.2s; 
+        }
+        .task-item.completed .check-icon { opacity: 1; transform: scale3d(1, 1, 1); }
 
         .task-content { flex: 1; display: flex; align-items: center; min-width: 0; padding-right: 8px; cursor: default; }
+        
         .task-text { 
             font-size: 14.5px; font-weight: 500; color: rgba(255, 255, 255, 0.95); letter-spacing: 0.5px; 
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4); width: 100%; line-height: 1.4;
+            width: 100%; line-height: 1.4;
             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; word-break: break-all;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 2px 10px rgba(0, 0, 0, 0.45);
         }
         .task-item.completed .task-text { text-decoration: line-through; color: rgba(255, 255, 255, 0.4); text-shadow: none; }
         
@@ -173,7 +192,75 @@
         .delete-btn:hover { color: #ff5252; background: rgba(255, 82, 82, 0.1); }
         .delete-btn:active { transform: scale(0.85); }
 
-        /* ================= 草稿与底部 ================= */
+        /* ==================== 播客电台挂件样式开始 ==================== */
+        .radio-container {
+            display: flex; flex-direction: column; 
+            background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px; box-sizing: border-box;
+            position: relative; z-index: 15;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 0; opacity: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; margin-bottom: 0; transform: translateY(-5px);
+        }
+        .radio-container.show { max-height: 145px; opacity: 1; padding: 10px 12px; margin-bottom: 12px; transform: translateY(0); }
+        
+        .radio-header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        
+        .radio-channel-select {
+            background: transparent; border: none; color: #4ade80; font-size: 12px; font-weight: bold; 
+            outline: none; cursor: pointer; letter-spacing: 0.5px; max-width: 250px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .radio-channel-select option { background: #1a2f22; color: #fff; }
+
+        .radio-close { cursor: pointer; color: rgba(255,255,255,0.4); font-size: 14px; transition: all 0.2s; padding: 2px;}
+        .radio-close:hover { color: #ff5252; transform: scale(1.1); }
+        
+        .radio-ep-box { display: flex; align-items: center; margin-bottom: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.05); }
+        .radio-ep-select {
+            width: 100%; background: transparent; border: none; color: rgba(255,255,255,0.95); font-size: 12.5px; font-weight: 500; 
+            outline: none; cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .radio-ep-select option { background: #2a3530; color: #fff; font-size: 13px; }
+        
+        .radio-controls { display: flex; align-items: center; gap: 8px; }
+        
+        .radio-ctrl-btn { font-size: 16px; color: rgba(255,255,255,0.8); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+        .radio-ctrl-btn:hover { color: #4ade80; transform: scale(1.15); }
+        .radio-ctrl-btn:active { transform: scale(0.9); }
+        
+        .radio-play-btn { width: 32px; height: 32px; border-radius: 50%; background: #4ade80; color: #1a2f22; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; box-shadow: 0 2px 8px rgba(74, 222, 128, 0.3); font-size: 14px;}
+        .radio-play-btn:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(74, 222, 128, 0.4); }
+        .radio-play-btn:active { transform: scale(0.95); }
+        
+        .radio-progress-wrapper { flex: 1; display: flex; align-items: center; position: relative; height: 16px; margin-left: 2px;}
+        /* 采用磨砂半透明白渐变底色，完全融合各种透明或彩色壁纸 */
+        .radio-progress { 
+            -webkit-appearance: none; 
+            width: 100%; 
+            height: 4px; 
+            background: linear-gradient(to right, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.12) 0%); 
+            border-radius: 2px; 
+            outline: none; 
+            cursor: pointer; 
+            transition: background 0.1s;
+        }
+        .radio-progress:hover { background: rgba(255,255,255,0.3); }
+        .radio-progress::-webkit-slider-thumb { 
+            -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; 
+            background: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer; 
+            transition: transform 0.1s; 
+        }
+        .radio-progress::-webkit-slider-thumb:hover { transform: scale(1.25); background: #4ade80;}
+        
+        .radio-speed-btn { 
+            font-size: 11px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 4px 8px; 
+            border-radius: 12px; cursor: pointer; color: rgba(255,255,255,0.9); transition: all 0.2s; 
+            flex-shrink: 0; user-select: none; border: 1px solid rgba(255,255,255,0.15); 
+        }
+        .radio-speed-btn:hover { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.3); color: #fff; transform: translateY(-1px); }
+        .radio-speed-btn:active { transform: scale(0.95); }
+        /* ==================== 播客电台挂件样式结束 ==================== */
+
         .note-wrapper { flex: 1; display: flex; position: relative; min-height: 0; width: 100%; margin-bottom: 12px; }
         .note-area { flex: 1; width: 100%; background: transparent; border: none; outline: none; color: rgba(255, 255, 255, 0.9); font-family: inherit; font-size: 14.5px; line-height: 1.6; resize: none; padding-right: 6px; margin-right: -6px; margin-bottom: 0; transition: opacity 0.2s ease; }
         .note-area::placeholder { color: rgba(255, 255, 255, 0.3); }
@@ -189,17 +276,26 @@
 
         .word-footer { position: relative; z-index: 50; margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.15); display: flex; align-items: flex-start; gap: 8px; }
         .word-footer i.ph-translate { font-size: 20px; opacity: 0.8; margin-top: 6px; color: #4ade80; }
-        .word-text-box { flex: 1; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; justify-content: center; min-width: 0; border-radius: 8px;}
-        .word-text-box:hover { transform: translateY(-2px); }
-        .word-text-box:active { transform: scale(0.98); }
+        
+        .word-text-box { 
+            flex: 1; cursor: pointer; display: flex; flex-direction: column; justify-content: center; min-width: 0; border-radius: 8px;
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            will-change: transform;
+        }
+        .word-text-box:hover { transform: translateY(-1.5px); }
+        .word-text-box:active { transform: scale3d(0.98, 0.98, 1); }
         .blurred-translation { filter: blur(5px); opacity: 0.4; transition: all 0.3s ease; user-select: none; }
         
-        .footer-btn { cursor: pointer; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 18px; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; }
-        .footer-btn:hover { background: rgba(255, 255, 255, 0.2); color: #4ade80; transform: scale(1.05); }
-        .footer-btn:active { transform: scale(0.85); opacity: 0.8; } 
+        .footer-btn { 
+            cursor: pointer; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; 
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s; 
+            font-size: 18px; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; 
+            will-change: transform;
+        }
+        .footer-btn:hover { background: rgba(255, 255, 255, 0.2); color: #4ade80; transform: translateY(-1px) scale3d(1.06, 1.06, 1); }
+        .footer-btn:active { transform: scale3d(0.9, 0.9, 1); opacity: 0.8; } 
         .eye-hidden { color: #4ade80 !important; }
 
-        /* ================= 悬浮 Modal (壁纸库等) ================= */
        .gallery-modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(30, 35, 40, 0.75); 
@@ -207,7 +303,9 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05); 
             z-index: 999; display: flex; flex-direction: column; padding: 20px; opacity: 0; pointer-events: none; 
-            transition: all 0.3s ease; box-sizing: border-box; border-radius: 16px; overflow: hidden;
+            transition: opacity 0.15s ease; 
+            box-sizing: border-box; border-radius: 16px; overflow: hidden;
+            will-change: opacity;
         }
         .gallery-modal.show { opacity: 1; pointer-events: auto; }
         .gallery-header { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: bold; margin-bottom: 16px; color: #ffffff; letter-spacing: 1px; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
@@ -218,6 +316,8 @@
             display: grid; grid-template-columns: repeat(2, 1fr); 
             grid-auto-rows: max-content; gap: 12px; overflow-y: auto; overflow-x: hidden !important; 
             flex: 1; padding-right: 4px; width: 100%; box-sizing: border-box; 
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
         }
         .gallery-grid::-webkit-scrollbar { width: 4px; }
         .gallery-grid::-webkit-scrollbar-track { background: transparent; }
@@ -228,6 +328,8 @@
             border-radius: 10px; position: relative; background-size: cover !important; background-position: center !important; 
             cursor: pointer; border: 2px solid rgba(255,255,255,0.1); transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); 
             box-shadow: 0 4px 15px rgba(0,0,0,0.4); overflow: hidden;
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
         }
         .gallery-item:hover { transform: scale(1.02); border-color: rgba(255,255,255,0.6); }
         .gallery-item:active { transform: scale(0.95); }
@@ -241,7 +343,6 @@
         .theme-label { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 12px; color: white; text-shadow: 0 1px 4px rgba(0,0,0,0.8); background: rgba(0,0,0,0.4); padding: 4px 0; pointer-events: none; }
         .empty-gallery { grid-column: span 2; text-align: center; color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 
-        /* ================= 🌟 极简风格专属样式 ================= */
         .minimalist-container {
             display: none;
             flex-direction: column;
@@ -249,15 +350,15 @@
             width: 100%;
         }
 
-        /* 极简模式激活状态 (严格限定隐藏 front 里的元素，绝对不影响 back 里的草稿纸！) */
         body.minimalist-mode .widget-front {
-            background: rgba(15, 20, 25, 0.4) !important; /* 黑透 */
+            background: rgba(15, 20, 25, 0.4) !important; 
             padding: 0 !important;
             overflow: hidden;
         }
         body.minimalist-mode .widget-front .header,
         body.minimalist-mode .widget-front .input-container,
         body.minimalist-mode .widget-front .list-container,
+        body.minimalist-mode .widget-front .radio-container,
         body.minimalist-mode .widget-front .word-footer {
             display: none !important;
         }
@@ -265,19 +366,17 @@
             display: flex;
         }
 
-        /* 极简顶部标题与深色背景隔离 */
         .mini-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(10, 15, 20, 0.55); /* 区标题深色 */
+            background: rgba(10, 15, 20, 0.55); 
             padding: 14px 18px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             border-top-left-radius: 16px;
             border-top-right-radius: 16px;
         }
         
-        /* 可编辑日程标题 */
         .mini-title-input {
             background: transparent;
             border: none;
@@ -286,7 +385,7 @@
             font-weight: bold;
             letter-spacing: 1.5px;
             outline: none;
-            width: 150px; /* 预留合理的编辑宽度 */
+            width: 150px; 
             padding: 2px 0;
             box-sizing: border-box;
             text-shadow: 0 1px 2px rgba(0,0,0,0.5);
@@ -297,24 +396,25 @@
             align-items: center;
             gap: 12px;
         }
+        
         .mini-icon-btn {
             cursor: pointer;
             color: rgba(255, 255, 255, 0.7);
             font-size: 16px;
-            transition: color 0.2s, transform 0.2s;
+            transition: color 0.2s, transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex;
             align-items: center;
             justify-content: center;
+            will-change: transform;
         }
         .mini-icon-btn:hover {
             color: #ffffff;
-            transform: scale(1.1);
+            transform: translateY(-1px) scale3d(1.1, 1.1, 1);
         }
         .mini-icon-btn:active {
-            transform: scale(0.9);
+            transform: scale3d(0.9, 0.9, 1);
         }
 
-        /* 极简新增任务输入框 */
         .mini-input-container {
             max-height: 0;
             opacity: 0;
@@ -334,12 +434,11 @@
         }
         .mini-task-input::placeholder { color: rgba(255, 255, 255, 0.35); }
 
-        /* 极简任务列表浅色背景 */
         .mini-list-container {
             flex: 1;
             overflow-y: auto;
             padding: 12px 18px;
-            background: rgba(255, 255, 255, 0.02); /* 任务区域浅色 */
+            background: rgba(255, 255, 255, 0.02); 
             border-bottom-left-radius: 16px;
             border-bottom-right-radius: 16px;
         }
@@ -347,7 +446,6 @@
         .mini-list-container::-webkit-scrollbar-track { background: transparent; }
         .mini-list-container::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
 
-        /* 极简风格专属卡片覆盖 */
         .minimalist-container .task-list {
             display: flex;
             flex-direction: column;
@@ -364,23 +462,21 @@
         .minimalist-container .task-item:last-child {
             border-bottom: none !important;
         }
-        /* 🌟 勾选框：完全恢复为系统默认风格与尺寸，仅保留扁平直角，无多余色彩干扰 */
         .minimalist-container .checkbox {
             border-radius: 4px !important;
         }
         .minimalist-container .task-text {
             font-size: 13.5px !important;
-            font-weight: 500 !important; /* 字体增加比重，提高清晰度 */
-            color: rgba(255, 255, 255, 0.98) !important; /* 极简未完成字体更加明亮 */
+            font-weight: 500 !important; 
+            color: rgba(255, 255, 255, 0.98) !important; 
             text-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
         }
         .minimalist-container .task-item.completed .task-text {
             text-decoration: line-through !important;
-            color: rgba(255, 255, 255, 0.55) !important; /* 🌟 划掉字体更亮一个度，保持易读美观 */
+            color: rgba(255, 255, 255, 0.55) !important; 
             text-shadow: none !important;
         }
 
-        /* 浅橙色时间胶囊 */
         .mini-badge-orange {
             background: rgba(217, 119, 6, 0.15) !important;
             color: #fb923c !important;
@@ -401,12 +497,635 @@
             color: #f87171 !important;
             border-color: rgba(239, 68, 68, 0.3) !important;
         }
+        /* ==================== 沉浸番茄钟样式 ==================== */
+        .immersive-timer-view {
+            position: absolute;
+            top: 55%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 99;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .immersive-time {
+            font-size: 52px;
+            font-weight: 800;
+            color: #ff5252;
+            letter-spacing: 1px;
+            text-shadow: 0 4px 15px rgba(255, 82, 82, 0.35);
+            font-family: "Segoe UI", -apple-system, sans-serif;
+            margin-top: 4px;
+        }
+
+        .immersive-stop-btn {
+            margin-top: 28px;
+            padding: 8px 18px;
+            border-radius: 20px;
+            background: rgba(255, 82, 82, 0.15);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            color: #ff5252;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            letter-spacing: 1px;
+        }
+        .immersive-stop-btn:hover {
+            background: rgba(255, 82, 82, 0.25);
+            border-color: rgba(255, 82, 82, 0.6);
+            transform: scale(1.06);
+            box-shadow: 0 0 10px rgba(255, 82, 82, 0.2);
+        }
+        .immersive-stop-btn:active {
+            transform: scale(0.95);
+        }
+
+        .header, .input-container, .list-container, .radio-container, .word-footer, .minimalist-container {
+            transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* 加入对电台的隐藏控制 */
+        body.pomodoro-active .header,
+        body.pomodoro-active .list-container,
+        body.pomodoro-active .input-container,
+        body.pomodoro-active .radio-container,
+        body.pomodoro-active .word-footer,
+        body.pomodoro-active .minimalist-container {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transform: scale(0.96); 
+        }
+
+        body.pomodoro-active .immersive-timer-view {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        @keyframes breathAnimation {
+            0% { opacity: 0.5; filter: drop-shadow(0 0 5px rgba(255, 82, 82, 0.2)); }
+            50% { opacity: 1; filter: drop-shadow(0 0 15px rgba(255, 82, 82, 0.6)); }
+            100% { opacity: 0.5; filter: drop-shadow(0 0 5px rgba(255, 82, 82, 0.2)); }
+        }
+        .breath-item {
+            animation: breathAnimation 3s infinite ease-in-out;
+        }
+        /* ==================== 沉浸番茄钟样式结束 ==================== */
+
+        /* ==================== 历史便签存档样式 ==================== */
+        .note-archive-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            width: 100%;
+        }
+        .note-archive-item:hover {
+            background: rgba(255, 255, 255, 0.09);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .note-archive-time {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .note-archive-body {
+            font-size: 13.5px;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .note-archive-body::-webkit-scrollbar { width: 3px; }
+        .note-archive-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        
+        .note-archive-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            padding-top: 8px;
+            margin-top: 4px;
+        }
+        .note-archive-btn {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            transition: color 0.2s, transform 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .note-archive-btn:hover { color: #4ade80; }
+        .note-archive-btn.del:hover { color: #ff5252; }
+        .note-archive-btn:active { transform: scale(0.95); }
+        /* ==================== 历史便签存档样式结束 ==================== */
+
+        /* ==================== 核心背英语单词高颜值组件样式 ==================== */
+        .learning-center-modal {
+            gap: 12px;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 选项卡头部切换 */
+        .learning-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+            flex-shrink: 0;
+        }
+        .learning-tab-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.65);
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .learning-tab-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: white;
+        }
+        .learning-tab-btn.active {
+            background: #4ade80;
+            color: #102018;
+            border-color: #4ade80;
+            box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+        }
+
+        /* 模式切换双核按钮 */
+        .vocab-mode-toggle {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-shrink: 0;
+        }
+        .vocab-toggle-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.65);
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 11.5px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .vocab-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .vocab-toggle-btn.active {
+            background: rgba(74, 222, 128, 0.15);
+            color: #4ade80;
+            border-color: rgba(74, 222, 128, 0.35);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(74, 222, 128, 0.12);
+        }
+
+        /* 背单词区域视图 */
+        .vocab-study-view {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* 进度条指示器 */
+        .vocab-progress-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 700;
+        }
+        .vocab-progress-track {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 99px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .vocab-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #4ade80;
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+            transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* 卡片主体 */
+        .vocab-card {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s, border-color 0.2s;
+            overflow: hidden;
+            min-height: 220px;
+            outline: none;
+        }
+        .vocab-card:hover {
+            transform: scale(1.015);
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+        
+        .vocab-word {
+            font-size: 32px;
+            font-weight: 900;
+            color: #4ade80 !important; /* 调整英文单词配色为高饱和主题绿色 */
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 10px rgba(74, 222, 128, 0.25);
+            word-break: break-all;
+        }
+        
+        .vocab-phonetic-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            margin-bottom: 14px;
+        }
+        .vocab-speaker-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #4ade80;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+        .vocab-speaker-btn:hover {
+            background: rgba(74, 222, 128, 0.2);
+            transform: scale(1.1);
+        }
+
+        /* 释义与例句隐藏区域 */
+        .vocab-details-container {
+            width: 100%;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .vocab-details-container.revealed {
+            max-height: 140px;
+            opacity: 1;
+        }
+
+        .vocab-trans-text {
+            font-size: 16px;
+            font-weight: 800;
+            color: #ffffff !important; /* 调整中文翻译配色为优雅亮白色 */
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            padding-top: 10px;
+            width: 100%;
+        }
+
+        .vocab-sentence-box {
+            max-width: 95%;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 8px 10px;
+            border: 1px solid rgba(255,255,255,0.04);
+            box-sizing: border-box;
+        }
+        .vocab-sentence-en {
+            color: rgba(255, 255, 255, 0.8);
+            font-style: italic;
+            line-height: 1.4;
+            margin-bottom: 2px;
+        }
+        .vocab-sentence-zh {
+            color: rgba(74, 222, 128, 0.85);
+        }
+
+        .vocab-click-hint {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: 0.5px;
+            margin-top: 6px;
+            transition: opacity 0.2s;
+        }
+        .vocab-details-container.revealed ~ .vocab-click-hint {
+            opacity: 0;
+            pointer-events: none;
+            height: 0;
+            margin: 0;
+        }
+
+        /* 背单词两个核心控制按钮(始终在界面上) */
+        .vocab-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+        .vocab-btn {
+            height: 44px;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .vocab-btn.dont-know {
+            background: rgba(239, 68, 68, 0.12);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+        .vocab-btn.dont-know:hover {
+            background: rgba(239, 68, 68, 0.22);
+            border-color: rgba(239, 68, 68, 0.5);
+            transform: translateY(-1.5px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+        }
+        .vocab-btn.know {
+            background: rgba(74, 222, 128, 0.12);
+            border-color: rgba(74, 222, 128, 0.3);
+            color: #4ade80;
+        }
+        .vocab-btn.know:hover {
+            background: rgba(74, 222, 128, 0.22);
+            border-color: #4ade80;
+            transform: translateY(-1.5px);
+            box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
+        }
+        .vocab-btn:active {
+            transform: scale(0.96) !important;
+        }
+
+        /* 单词列表搜索与滚动容器 */
+        .vocab-list-view {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+            min-height: 0;
+        }
+        .vocab-search-row {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .vocab-search-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: white;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .vocab-search-input::placeholder {
+            color: rgba(255,255,255,0.35);
+        }
+        .vocab-search-input:focus {
+            border-color: #4ade80;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .vocab-list-scroll {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 4px;
+        }
+        .vocab-list-scroll::-webkit-scrollbar { width: 4px; }
+        .vocab-list-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+
+        /* 极度优美的列表滑动条目及已掌握按钮 */
+        .word-list-item-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: opacity 0.25s, max-height 0.25s, margin 0.25s, border-color 0.2s, padding 0.25s;
+            max-height: 100px;
+            flex-shrink: 0; /* 核心修复：防止在高负载 flex 容器中由于元素过多被压缩成 0 高度细线 */
+        }
+        .word-list-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            padding-right: 85px; /* 核心修复：固定的右侧安全间距，给右侧绝对定位出现的“已掌握”按钮预留极简空间 */
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .word-list-item-wrapper:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .word-list-sound-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 15px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .word-list-sound-btn:hover {
+            color: #4ade80;
+            background: rgba(74, 222, 128, 0.15);
+        }
+
+        .word-list-text-box {
+            flex: 1;
+            min-width: 0;
+        }
+        .word-list-term-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 2px;
+        }
+        .word-list-english {
+            font-size: 14px;
+            font-weight: 800;
+            color: #4ade80 !important; /* 调整列表英文单词配色为高饱和主题绿色 */
+        }
+        .word-list-phonetic {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.45);
+        }
+        
+        /* 词汇管理支持“点击显示释义”磨砂遮罩样式 */
+        .word-list-trans {
+            font-size: 12px;
+            color: #ffffff !important; /* 调整中文翻译配色为亮白色 */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            filter: blur(4px);
+            opacity: 0.35;
+            transition: filter 0.25s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s ease, white-space 0.25s;
+            cursor: pointer;
+        }
+        .word-list-trans.revealed {
+            filter: none !important;
+            opacity: 1 !important;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+        }
+        .word-list-trans:hover {
+            opacity: 0.65;
+        }
+
+        /* 核心修复：不改变列表位置，直接在右侧优雅淡入/缩放的已掌握按钮 */
+        .mastered-slider-btn {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%) scale(0.9);
+            width: 60px;
+            height: 26px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+            user-select: none;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+            z-index: 10;
+        }
+        .word-list-item-wrapper:hover .mastered-slider-btn {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(-50%) scale(1);
+        }
+
+        /* 极致丝滑的离场果冻消失动效 (解决布局塌陷与抖动卡顿) */
+        @keyframes wordJellyOut {
+            0% { transform: scale(1); opacity: 1; max-height: 100px; padding-top: 10px; padding-bottom: 10px; margin-bottom: 8px; }
+            30% { transform: scale(1.06); background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); }
+            100% { transform: scale(0.8) translateY(15px); opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-bottom: 0; margin-top: 0; border-color: transparent; }
+        }
+        .word-jelly-out {
+            animation: wordJellyOut 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+            pointer-events: none !important;
+        }
+
+        /* 恭喜复习完插页 */
+        .vocab-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            flex: 1;
+            padding: 20px;
+            gap: 12px;
+            color: rgba(255,255,255,0.85);
+        }
+        .vocab-empty-icon {
+            font-size: 44px;
+            color: #4ade80;
+            filter: drop-shadow(0 0 10px rgba(74,222,128,0.4));
+        }
+        .vocab-empty-title {
+            font-size: 15px;
+            font-weight: bold;
+        }
+        .vocab-empty-desc {
+            font-size: 12px;
+            color: rgba(255,255,255,0.45);
+            line-height: 1.5;
+        }
+        .vocab-reset-link {
+            color: #4ade80;
+            text-decoration: underline;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        /* ==================== 核心背英语单词高颜值组件样式结束 ==================== */
     </style>
 </head>
 <body>
     <div class="flip-container" id="flipContainer">
         <div class="widget-flipper">
-            <!-- 正面：待办区 -->
             <div class="widget-front" id="mainWidget">
                 <div class="focus-overlay"></div>
 
@@ -430,6 +1149,9 @@
                     </div>
                     
                     <div class="header-right">
+                        <!-- 学习中心按钮已从这里移至下方单词底栏第二排 -->
+                        <div class="icon-btn" id="radioToggleBtn" title="日语听力电台 (播客)"><i class="ph ph-radio"></i></div>
+                        
                         <div class="icon-btn custom-bg-btn" title="个性化外观 (皮肤与壁纸)"><i class="ph ph-palette"></i></div>
                         <div class="icon-btn" id="pomodoroBtn" title="开启 25 分钟番茄专注"><i class="ph ph-timer"></i></div>
                         <div class="icon-btn" id="flipToNoteBtn" title="切换草稿纸"><i class="ph ph-note-pencil"></i></div>
@@ -446,22 +1168,67 @@
                     <ul class="task-list" id="taskList"></ul>
                 </div>
                 
+                <!-- 播客电台播放器 UI -->
+                <div class="radio-container" id="radioContainer">
+                    <div class="radio-header-box">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <i class="ph-bold ph-radio" style="color:#4ade80;"></i>
+                            <!-- 频道选择器 -->
+                            <select id="radioChannelSelect" class="radio-channel-select" title="点击切换电台频道"></select>
+                        </div>
+                        <i class="ph ph-x radio-close" id="radioCloseBtn" title="真正关闭电台并停止播放"></i>
+                    </div>
+                    
+                    <!-- 往期节目选集列表 -->
+                    <div class="radio-ep-box">
+                        <select id="radioEpisodeSelect" class="radio-ep-select" title="点击选择往期节目">
+                            <option value="">请先点击下方播放按钮连接电台...</option>
+                        </select>
+                    </div>
+
+                    <audio id="radioAudio" style="display:none;"></audio>
+                    
+                    <div class="radio-controls">
+                        <!-- 上一集/下一集 控制 -->
+                        <i class="ph-fill ph-skip-back radio-ctrl-btn" id="radioPrevBtn" title="上一集 (较新)"></i>
+                        <div class="radio-play-btn" id="radioPlayBtn" title="播放 / 暂停"><i class="ph-fill ph-play" style="margin-left: 2px;"></i></div>
+                        <i class="ph-fill ph-skip-forward radio-ctrl-btn" id="radioNextBtn" title="下一集 (较老，看完自动顺延)"></i>
+                        
+                        <!-- 进度条 -->
+                        <div class="radio-progress-wrapper">
+                            <input type="range" class="radio-progress" id="radioProgress" value="0" min="0" max="100" title="拖动调节进度">
+                        </div>
+                        <!-- 倍速调节 -->
+                        <div class="radio-speed-btn" id="radioSpeedBtn" title="点击切换播放倍速">1.0x</div>
+                    </div>
+                </div>
+
                 <div class="word-footer">
                     <i class="ph ph-translate"></i>
                     <div class="word-text-box class-word-trigger glare-effect" title="点击手动更换单词" style="padding: 0 4px;">
                         <span class="word-box">加载中...</span>
                     </div>
-                    <div class="footer-btn class-speak-trigger" title="点击播放美音"><i class="ph ph-speaker-high"></i></div>
-                    <div class="footer-btn class-eye-trigger" title="盲猜模式"><i class="ph ph-eye"></i></div>
-                    <div class="footer-btn class-import-trigger" title="导入词库"><i class="ph ph-upload-simple"></i></div>
+                    <!-- 将操作按钮与学习中心入口整合为两排的垂直容器 -->
+                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0;">
+                        <!-- 第一排原始操作按钮 -->
+                        <div style="display: flex; gap: 8px;">
+                            <div class="footer-btn class-speak-trigger" title="点击播放美音"><i class="ph ph-speaker-high"></i></div>
+                            <div class="footer-btn class-eye-trigger" title="盲猜模式"><i class="ph ph-eye"></i></div>
+                            <div class="footer-btn class-import-trigger" title="导入词库"><i class="ph ph-upload-simple"></i></div>
+                        </div>
+                        <!-- 第二排：导入单词的下方（自适应极致质感） -->
+                        <div class="footer-btn learningCenterBtn" id="learningCenterBtn" title="背英语单词 / 学习中心" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 4px 8px; width: 100%; box-sizing: border-box; font-size: 11px; font-weight: bold; height: 26px; background: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); color: #4ade80;">
+                            <i class="ph ph-graduation-cap" style="font-size: 13px;"></i>
+                            <span>学习中心</span>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- 🌟 极简风格布局容器 -->
                 <div class="minimalist-container" id="minimalistContainer">
                     <div class="mini-header">
-                        <!-- 🌟 支持重命名、可编辑的日程标题 -->
                         <input type="text" class="mini-title-input" id="miniTitleInput" spellcheck="false" autocomplete="off" value="日程">
                         <div class="mini-header-right">
+                            <div class="mini-icon-btn learningCenterBtn" id="miniLearningCenterBtn" title="背英语单词"><i class="ph-bold ph-graduation-cap"></i></div>
                             <div class="mini-icon-btn" id="miniLockBtn" title="固定窗口"><i class="ph-bold ph-lock-open"></i></div>
                             <div class="mini-icon-btn" id="miniCycleBtn" title="返回主界面"><i class="ph-bold ph-arrows-counter-clockwise"></i></div>
                             <div class="mini-icon-btn" id="miniAddTaskBtn" title="添加任务"><i class="ph-bold ph-plus"></i></div>
@@ -474,9 +1241,16 @@
                         <ul class="task-list" id="miniTaskList"></ul>
                     </div>
                 </div>
+
+                <!-- 沉浸倒计时显示区域 -->
+                <div class="immersive-timer-view">
+                    <i class="ph ph-timer breath-item" style="font-size: 46px; color: #ff5252;"></i>
+                    <div class="immersive-time breath-item" id="immersiveTimerText">25:00</div>
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 6px; letter-spacing: 2px;">FOCUSING</div>
+                    <div class="immersive-stop-btn" id="immersiveStopBtn">结束专注</div>
+                </div>
             </div>
 
-            <!-- 背面：草稿纸 -->
             <div class="widget-back" id="noteWidget">
                 <div class="focus-overlay"></div>
                 
@@ -490,8 +1264,8 @@
                         </div>
                     </div>
                     <div class="header-right">
-                        <div class="icon-btn" id="clearNoteBtn" title="一键清空草稿"><i class="ph ph-trash"></i></div>
-                        <!-- 🌟 按照要求：草稿纸中已彻底移除了更换壁纸的调色盘按钮，保证只能在主界面修改外观，防止逻辑冲突 -->
+                        <div class="icon-btn" id="noteArchiveBtn" title="查看历史便签存档"><i class="ph ph-archive"></i></div>
+                        <div class="icon-btn" id="clearNoteBtn" title="一键清空并静默存档"><i class="ph ph-trash"></i></div>
                         <div class="icon-btn" id="flipToTodoBtn" title="返回待办"><i class="ph ph-check-square"></i></div>
                         <div class="icon-btn pinBtn" title="点击固定在桌面上层"><i class="ph ph-push-pin"></i></div>
                     </div>
@@ -533,29 +1307,107 @@
                 <ul class="task-list" id="historyList"></ul>
             </div>
         </div>
+
+        <div class="gallery-modal" id="noteArchiveModal">
+            <div class="gallery-header" style="margin-bottom: 12px;">
+                <span>历史便签存档</span>
+                <i class="ph ph-x close-btn" id="closeNoteArchiveBtn" title="关闭"></i>
+            </div>
+            <div class="list-container" style="flex:1; margin-bottom:0; padding-right: 0;">
+                <ul class="task-list" id="noteArchiveList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;"></ul>
+            </div>
+        </div>
+
+        <!-- ==================== 智能背单词 / 词汇学习中心 modal 面板 ==================== -->
+        <div class="gallery-modal learning-center-modal" id="learningCenterModal">
+            <div class="gallery-header">
+                <div class="learning-title-block" style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph ph-graduation-cap" style="color:#4ade80; font-size:20px;"></i>
+                    <div class="learning-title-text" style="display:flex; flex-direction:column; gap:1px;">
+                        <span class="learning-title-main" style="font-size:14px; font-weight:800; letter-spacing:0.5px;">背单词</span>
+                        <span class="learning-title-sub" id="learningCenterSub" style="font-size:10px; color:rgba(255,255,255,0.45); font-weight:bold;">学而时习之，不亦说乎</span>
+                    </div>
+                </div>
+                <i class="ph ph-x close-btn" id="closeLearningCenterBtn" title="关闭"></i>
+            </div>
+
+            <!-- Tab 菜单切换 -->
+            <div class="learning-tabs">
+                <button class="learning-tab-btn active" id="tabBtnStudy"><i class="ph ph-cards"></i> 智能卡片背词</button>
+                <button class="learning-tab-btn" id="tabBtnList"><i class="ph ph-list-bullets"></i> 词汇管理 (<span id="totalWordCountLabel">0</span>)</button>
+            </div>
+
+            <!-- 视图 1：卡片背单词 -->
+            <div class="vocab-study-view" id="vocabStudyView">
+                
+                <!-- 新增：高保真磨砂双核模式切换按键 -->
+                <div class="vocab-mode-toggle">
+                    <button class="vocab-toggle-btn active" id="modeBtnMain"><i class="ph ph-list-numbers"></i> 主进度顺序背词</button>
+                    <button class="vocab-toggle-btn" id="modeBtnReview"><i class="ph ph-clock-counter-clockwise"></i> 待复习 (<span id="reviewQueueCount">0</span>)</button>
+                </div>
+
+                <div class="vocab-progress-row">
+                    <span id="vocabProgressText">背词进度: 0 / 0</span>
+                    <span id="vocabBoxInfo" title="不认识的词将抛入复习池，并安排时间间隔。">自适应艾宾浩斯记忆算法</span>
+                </div>
+                <div class="vocab-progress-track">
+                    <div class="vocab-progress-bar" id="vocabProgressBar"></div>
+                </div>
+
+                <!-- 磨砂自适应主卡片 -->
+                <div class="vocab-card glare-effect" id="vocabCard" tabindex="0" title="点击卡片主体显示详细翻译">
+                    <div class="vocab-word" id="vocabCardWord">Loading...</div>
+                    <div class="vocab-phonetic-row">
+                        <span id="vocabCardPhonetic">/ - /</span>
+                        <button class="vocab-speaker-btn" id="vocabCardSpeakBtn" title="点击播放发音"><i class="ph-bold ph-speaker-high"></i></button>
+                    </div>
+
+                    <!-- 隐藏翻译/例句区：点击显现 -->
+                    <div class="vocab-details-container" id="vocabDetailsContainer">
+                        <div class="vocab-trans-text" id="vocabCardTrans">释义加载中...</div>
+                        <div class="vocab-sentence-box" id="vocabSentenceBox" style="display:none;">
+                            <div class="vocab-sentence-en" id="vocabCardSentenceEn"></div>
+                            <div class="vocab-sentence-zh" id="vocabCardSentenceZh"></div>
+                        </div>
+                    </div>
+
+                    <div class="vocab-click-hint" id="vocabClickHint"><i class="ph ph-hand-tap"></i> 点击卡片任意处显现翻译</div>
+                </div>
+
+                <!-- 控制操作栏：直接暴露，无需等待翻译展现即可点击 -->
+                <div class="vocab-actions">
+                    <button class="vocab-btn dont-know" id="vocabBtnDontKnow"><i class="ph ph-face-frown"></i> 不认识 (复习)</button>
+                    <button class="vocab-btn know" id="vocabBtnKnow"><i class="ph ph-face-smile"></i> 认识 (下一个)</button>
+                </div>
+            </div>
+
+            <!-- 视图 2：单词库总表 -->
+            <div class="vocab-list-view" id="vocabListView" style="display:none;">
+                <div class="vocab-search-row">
+                    <input type="text" class="vocab-search-input" id="vocabSearchInput" placeholder="🔍 输入英文单词或中文释义搜索...">
+                </div>
+                <!-- 单词滚动容器 -->
+                <div class="vocab-list-scroll" id="vocabListScroll"></div>
+            </div>
+        </div>
     </div>
 
-    <input type="file" id="wordFileInput" accept=".txt" style="display: none;">
+    <!-- 扩展 input 的接收类型，允许上传表格格式 -->
+    <input type="file" id="wordFileInput" accept=".txt,.xlsx,.xls,.csv" style="display: none;">
     <input type="file" id="customImageInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
 
     <script>
         document.body.addEventListener('mouseenter', () => { if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('window-enter'); });
         document.body.addEventListener('mouseleave', () => { if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('window-leave'); });
 
-        // ==========================================
-        // 🚀 全新纯 JS 指针捕获物理拖拽引擎 (极致丝滑稳定+高帧率优化版)
-        // ==========================================
         let isAppDragging = false;
         let dragTarget = null; 
-        let dragAnimationFrame = null; // 用于防卡顿的帧率同步变量
-        let latestScreenX = 0;
-        let latestScreenY = 0;
+        let dragAnimationFrame = null; 
         
         document.addEventListener('pointerdown', (e) => {
             if (e.button !== 0) return; 
 
-            // 🌟 排除极简挂载控制及容器内操作，避免拖动干扰
-            if (e.target.closest('.icon-btn, .mini-icon-btn, input, textarea, .list-container, .mini-list-container, .gallery-grid, .close-btn, .progress-wrapper, .draft-add-btn, .word-text-box, .pill-style')) {
+            if (e.target.closest('.icon-btn, .mini-icon-btn, input, textarea, .list-container, .mini-list-container, .gallery-grid, .close-btn, .progress-wrapper, .draft-add-btn, .word-text-box, .pill-style, .radio-container, .learning-center-modal, .vocab-card, .vocab-btn, .vocab-search-input, .vocab-list-scroll')) {
                 return;
             }
             
@@ -565,19 +1417,16 @@
             dragTarget = e.target; 
             try { dragTarget.setPointerCapture(e.pointerId); } catch(err) {}
             
-            if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('drag-start', { x: e.screenX, y: e.screenY });
+            if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('drag-start');
         });
 
         document.addEventListener('pointermove', (e) => {
             if (!isAppDragging) return;
             
-            latestScreenX = e.screenX;
-            latestScreenY = e.screenY;
-            
             if (!dragAnimationFrame) {
                 dragAnimationFrame = requestAnimationFrame(() => {
                     if (typeof ipcRenderer !== 'undefined') {
-                        ipcRenderer.send('drag-move', { x: latestScreenX, y: latestScreenY });
+                        ipcRenderer.send('drag-move');
                     }
                     dragAnimationFrame = null;
                 });
@@ -600,18 +1449,13 @@
             if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('drag-end');
         });
 
-        // ==========================================
-        // 🌟 唤起原生级系统右键菜单 (绝对安全)
-        // ==========================================
         document.addEventListener('contextmenu', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; 
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return; 
             e.preventDefault();
             if (typeof ipcRenderer !== 'undefined') {
                 ipcRenderer.send('show-context-menu');
             }
         });
-
-        // ------------------------------------------
 
         function bindGlareEffect(el) {
             el.addEventListener('mousemove', e => {
@@ -626,7 +1470,10 @@
 
         const themePresets = [
             { name: "经典黑透", bg: "rgba(15, 25, 20, 0.25)", border: "rgba(255, 255, 255, 0.1)", filter: "blur(12px)" },
-            { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" } 
+            { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" },
+            { name: "深海猎人", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/a117deab789a8be09d0c6fcb058d4e0466857ad2.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" },
+            { name: "星河幻想", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/7847d3719fb08de3e86de89990f7ed5eab8ef1ee.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" },
+            { name: "幻星之愿", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/3538b2f3b8899b8f95161f4f0a6807433493083985480649.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" }
         ];
         
         let customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
@@ -634,6 +1481,10 @@
         let isMinimalistLayout = localStorage.getItem('canvas_todo_minimalist_layout') === 'true';
 
         function applyTheme() {
+            currentThemeIndex = parseInt(localStorage.getItem('canvas_todo_theme')) || 0;
+            customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
+            isMinimalistLayout = localStorage.getItem('canvas_todo_minimalist_layout') === 'true';
+
             if (isMinimalistLayout) {
                 document.body.classList.add('minimalist-mode');
                 if (typeof ipcRenderer !== 'undefined') {
@@ -651,9 +1502,13 @@
             const theme = totalThemes[currentThemeIndex];
             const frontEl = document.getElementById('mainWidget');
             const backEl = document.getElementById('noteWidget');
-            [frontEl, backEl].forEach(el => {
-                el.style.background = theme.bg; el.style.backgroundSize = theme.size || "auto"; el.style.backgroundPosition = "center";
-                el.style.borderColor = theme.border; el.style.backdropFilter = theme.filter; el.style.webkitBackdropFilter = theme.filter;
+            const learningEl = document.getElementById('learningCenterModal');
+
+            [frontEl, backEl, learningEl].forEach(el => {
+                if (el) {
+                    el.style.background = theme.bg; el.style.backgroundSize = theme.size || "auto"; el.style.backgroundPosition = "center";
+                    el.style.borderColor = theme.border; el.style.backdropFilter = theme.filter; el.style.webkitBackdropFilter = theme.filter;
+                }
             });
         }
         
@@ -684,7 +1539,6 @@
             uploadDiv.onclick = () => customImageInput.click();
             galleryGrid.appendChild(uploadDiv);
 
-            // 极简款式卡片渲染
             const miniDiv = document.createElement('div');
             miniDiv.className = 'gallery-item' + (isMinimalistLayout ? ' active-item' : '');
             miniDiv.style.background = "rgba(15, 20, 25, 0.4)";
@@ -750,7 +1604,7 @@
             if (file.path) {
                 customThemes.push({
                     name: `自定壁纸`,
-                    bg: `linear-gradient(rgba(10, 15, 20, 0.65), rgba(10, 15, 20, 0.65)), url('file:///${file.path.replace(/\\/g, '/')}')`,
+                    bg: `linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('file:///${file.path.replace(/\\/g, '/')}')`,
                     border: "rgba(255, 255, 255, 0.2)", filter: "blur(6px)", size: "cover"
                 });
                 localStorage.setItem('canvas_todo_custom_themes', JSON.stringify(customThemes));
@@ -774,25 +1628,35 @@
         }
 
         function playDing() {
-            if (!audioCtx) initAudio();
-            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
-            gain.gain.setValueAtTime(0, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05); 
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 3); 
-            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 3);
+            try {
+                if (!audioCtx) initAudio();
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05); 
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 3); 
+                osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 3);
+            } catch (err) {
+                console.warn("Audio Context playDing failed:", err);
+            }
         }
 
         function playPop() {
-            if (!audioCtx) initAudio();
-            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.type = 'sine'; osc.frequency.setValueAtTime(600, audioCtx.currentTime); 
-            osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1); 
-            gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01); 
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1); 
-            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.1);
+            try {
+                if (!audioCtx) initAudio();
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(600, audioCtx.currentTime); 
+                osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1); 
+                gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01); 
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1); 
+                osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.1);
+            } catch (err) {
+                console.warn("Audio Context playPop failed:", err);
+            }
         }
 
         function getFullLunarDateStr() {
@@ -856,6 +1720,11 @@
             const s = (pomodoroTime % 60).toString().padStart(2, '0');
             countdownBtnFront.innerHTML = `<i class="ph-bold ph-timer"></i> 专注 ${m}:${s}`;
             countdownBtnFront.style.color = "#ff5252"; 
+            
+            const immersiveEl = document.getElementById('immersiveTimerText');
+            if (immersiveEl) {
+                immersiveEl.textContent = `${m}:${s}`;
+            }
         }
 
         function togglePomodoro() {
@@ -885,7 +1754,20 @@
         targetDateInput.addEventListener('change', (e) => { if(e.target.value) { localStorage.setItem('todo_target_date', e.target.value); renderCountdown(); }});
         renderCountdown(); 
 
-        const defaultWords = [{ word: "Analyze", phonetic: "/ˈænəlaɪz/", trans: "v. 分析，研究" }];
+        // 默认英语精品词汇（带音标、释义、例句）
+        const defaultWords = [
+            { word: "guesser", phonetic: "/ˈɡesə/", trans: "n. 猜测者；占卜者", sentence: "You don't know for sure it's Lefors. - I'm a hell of a guesser.", sentenceTrans: "你还不确定那就是勒弗斯。- 我的猜测绝对不会错的。" },
+            { word: "exquisite", phonetic: "/ɪkˈskwɪzɪt/", trans: "adj. 精致的；高雅的；剧烈的", sentence: "The craftsmanship of the glass art was exquisite.", sentenceTrans: "这件玻璃艺术品的工艺极其精致。" },
+            { word: "resilient", phonetic: "/rɪˈzɪliənt/", trans: "adj. 有弹性的；能迅速恢复精力的", sentence: "She is resilient enough to overcome any setback.", sentenceTrans: "她足够坚强，能克服任何挫折。" },
+            { word: "pragmatic", phonetic: "/præɡˈmætɪk/", trans: "adj. 务实的；实用主义的", sentence: "We need to adopt a pragmatic approach to solve this problem.", sentenceTrans: "我们需要采取务实的方法来解决这个问题。" },
+            { word: "phenomenon", phonetic: "/fəˈnɒmɪnən/", trans: "n. 现象；杰出的人或事", sentence: "Glaciers are a natural phenomenon of extreme beauty.", sentenceTrans: "冰川是一种极富美感的自然现象。" },
+            { word: "vulnerable", phonetic: "/ˈvʌlnərəbl/", trans: "adj. 易受伤害的；脆弱的", sentence: "The old wooden bridge is vulnerable to flooding.", sentenceTrans: "这座老木桥很容易受到洪水的破坏。" },
+            { word: "epitome", phonetic: "/ɪˈpɪtəmi/", trans: "n. 典型；缩影", sentence: "He is the epitome of a modern gentleman.", sentenceTrans: "他是现代绅士 of the epitome。" },
+            { word: "nostalgia", phonetic: "/nɒˈstældʒə/", trans: "n. 怀旧；乡愁", sentence: "Hearing that old song filled her with nostalgia.", sentenceTrans: "听到那首老歌让她心中充满了怀旧之情。" },
+            { word: "fluctuate", phonetic: "/ˈflʌktʃueɪt/", trans: "v. 波动；起伏", sentence: "Gold prices fluctuate daily depending on market demand.", sentenceTrans: "黄金价格根据 market demand 每天都在波动。" },
+            { word: "sovereignty", phonetic: "/ˈsɒvrənti/", trans: "n. 主权；自主权", sentence: "The nation fought hard to defend its sovereignty.", sentenceTrans: "该国为捍卫主权进行了艰苦的斗争。" }
+        ];
+
         let isTransVisible = localStorage.getItem('todo_show_trans') === 'true';
         let currentWordText = ""; 
 
@@ -901,7 +1783,11 @@
                 localStorage.setItem('todo_word_index', wordIndex); localStorage.setItem('todo_word_time', now);
             }
             if (wordIndex >= activeWords.length) wordIndex = 0; 
-            const currentWord = activeWords[wordIndex]; currentWordText = currentWord.word; 
+            
+            const currentWord = activeWords[wordIndex] || defaultWords[0]; 
+            currentWordText = currentWord ? currentWord.word : ""; 
+
+            if (!currentWord) return;
 
             const phoneticHtml = currentWord.phonetic ? `<div style="font-size: 13px; opacity: 0.6; font-family: 'Segoe UI', sans-serif; margin-bottom: 2px;">${currentWord.phonetic}</div>` : '';
             const blurClass = isTransVisible ? '' : 'blurred-translation';
@@ -932,31 +1818,394 @@
         document.querySelectorAll('.class-speak-trigger').forEach(btn => btn.addEventListener('click', () => playAudio(currentWordText)));
 
         const wordFileInput = document.getElementById('wordFileInput');
-        document.querySelectorAll('.class-import-trigger').forEach(btn => btn.addEventListener('click', () => wordFileInput.click())); 
-        wordFileInput.addEventListener('change', (e) => {
+        document.querySelectorAll('.class-import-trigger').forEach(btn => {
+            btn.addEventListener('click', () => wordFileInput.click());
+        }); 
+        
+        // 升级版：智能多格式单词导入逻辑 (支持 TXT, XLSX, XLS, CSV 并自带盲猜自适应扫描器)
+        wordFileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const newCustomWords = [];
-                event.target.result.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
-                    if (line.includes('|')) {
-                        const parts = line.split('|').map(p => p.trim());
-                        newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
-                    } else {
-                        const cnIndex = line.search(/[\u4e00-\u9fa5]/);
-                        if (cnIndex !== -1) newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
+            const fileName = file.name.toLowerCase();
+
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = new Uint8Array(event.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+                        let startRow = 0;
+                        let wordIdx = -1, phoneIdx = -1, posIdx = -1, meanIdx = -1;
+
+                        // 第一步：基于表头文本规则定位列索引
+                        if (rows.length > 0) {
+                            const firstRow = rows[0];
+                            if (Array.isArray(firstRow)) {
+                                const rowStrings = firstRow.map(c => String(c || "").trim());
+                                if (rowStrings.includes("单词") || rowStrings.includes("音标") || rowStrings.includes("中文") || rowStrings.includes("意思") || rowStrings.includes("释义") || rowStrings.includes("词性")) {
+                                    startRow = 1;
+                                    wordIdx = rowStrings.findIndex(s => s.includes("单词") || s.toLowerCase() === "word");
+                                    phoneIdx = rowStrings.findIndex(s => s.includes("音标") || s.toLowerCase().includes("phonetic"));
+                                    posIdx = rowStrings.findIndex(s => s.includes("词性") || s.toLowerCase() === "pos");
+                                    meanIdx = rowStrings.findIndex(s => s.includes("中文意思") || s.includes("释义") || s.includes("意思") || s.includes("翻译") || s.toLowerCase().includes("trans") || s.toLowerCase().includes("mean"));
+                                }
+                            }
+                        }
+
+                        // 第二步（终极修复）：如果未找到显式表头，启动全网最强单元格类型扫描自适应器
+                        if (wordIdx === -1 || meanIdx === -1) {
+                            let detectedWordIdx = -1;
+                            let detectedMeanIdx = -1;
+                            let detectedPhoneIdx = -1;
+
+                            // 检索前 10 行分析列中的格式
+                            for (let r = 0; r < Math.min(rows.length, 10); r++) {
+                                const row = rows[r];
+                                if (!row || !Array.isArray(row)) continue;
+                                for (let c = 0; c < row.length; c++) {
+                                    const val = String(row[c] || "").trim();
+                                    if (!val) continue;
+                                    // 识别符合纯英文格式的单元格
+                                    if (detectedWordIdx === -1 && /^[a-zA-Z\s\-']{2,40}$/.test(val)) {
+                                        detectedWordIdx = c;
+                                    }
+                                    // 识别带有中文翻译的单元格
+                                    if (detectedMeanIdx === -1 && /[\u4e00-\u9fa5]/.test(val)) {
+                                        detectedMeanIdx = c;
+                                    }
+                                    // 识别国际音标格式
+                                    if (detectedPhoneIdx === -1 && (val.startsWith('/') || val.startsWith('['))) {
+                                        detectedPhoneIdx = c;
+                                    }
+                                }
+                            }
+                            
+                            // 探测定位，降级方案默认为 A 英文, B 中文
+                            wordIdx = detectedWordIdx !== -1 ? detectedWordIdx : 0;
+                            meanIdx = detectedMeanIdx !== -1 ? detectedMeanIdx : 1;
+                            if (detectedPhoneIdx !== -1) phoneIdx = detectedPhoneIdx;
+                        }
+
+                        const newCustomWords = [];
+                        for (let i = startRow; i < rows.length; i++) {
+                            let row = rows[i];
+                            if (!row) continue;
+
+                            let word = String(row[wordIdx] !== undefined ? row[wordIdx] : "").trim();
+                            let phonetic = phoneIdx !== -1 && row[phoneIdx] !== undefined ? String(row[phoneIdx]).trim() : "";
+                            let pos = posIdx !== -1 && row[posIdx] !== undefined ? String(row[posIdx]).trim() : "";
+                            let meaning = String(row[meanIdx] !== undefined ? row[meanIdx] : "").trim();
+
+                            meaning = meaning.replace(/^"|"$/g, '').trim();
+
+                            // 剔除空字以及垃圾无效符号
+                            if (word && word !== "单词" && word !== "nan" && word !== "undefined" && !/^[0-9]+$/.test(word)) {
+                                let pos_meaning = `${pos} ${meaning}`.trim();
+                                newCustomWords.push({
+                                    word: word,
+                                    phonetic: phonetic,
+                                    trans: pos_meaning
+                                });
+                            }
+                        }
+
+                        if (newCustomWords.length > 0) {
+                            localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); 
+                            localStorage.setItem('todo_word_index', '0'); 
+                            alert(`已智能适配表头，成功无缝导入 ${newCustomWords.length} 个单词！`); 
+                            updateWord(true); 
+                            syncVocabToLearningCenter(); // 双端联动触发渲染更新
+                        } else {
+                            alert("未能在表格中探测到有效单词数据。请确保至少有一列为纯英文，一列为中文。");
+                        }
+                    } catch (err) {
+                        alert("解析表格文件出错：" + err.message);
                     }
-                });
-                if (newCustomWords.length > 0) {
-                    localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
-                    alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
-                }
-            };
-            reader.readAsText(file, 'utf-8'); e.target.value = ''; 
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const newCustomWords = [];
+                    event.target.result.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
+                        if (line.includes('|')) {
+                            const parts = line.split('|').map(p => p.trim());
+                            newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
+                        } else {
+                            const cnIndex = line.search(/[\u4e00-\u9fa5]/);
+                            if (cnIndex !== -1) {
+                                newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
+                            } else {
+                                newCustomWords.push({ word: line.trim(), phonetic: '', trans: '暂无中文释义' });
+                            }
+                        }
+                    });
+                    if (newCustomWords.length > 0) {
+                        localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
+                        alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
+                        syncVocabToLearningCenter(); 
+                    } else {
+                        alert("未能在文本中识别出有效单词数据。");
+                    }
+                };
+                reader.readAsText(file, 'utf-8');
+            }
+            e.target.value = ''; 
         });
 
         updateWord(false);
         setInterval(() => { if(!isPomodoro) { updateWord(false); renderCountdown(); } }, 60000);
+
+       // ==================== 播客电台核心逻辑 ====================
+        const radioToggleBtn = document.getElementById('radioToggleBtn');
+        const radioContainer = document.getElementById('radioContainer');
+        const radioCloseBtn = document.getElementById('radioCloseBtn');
+        
+        const radioChannelSelect = document.getElementById('radioChannelSelect');
+        const radioEpisodeSelect = document.getElementById('radioEpisodeSelect');
+        const radioAudio = document.getElementById('radioAudio');
+        const radioPlayBtn = document.getElementById('radioPlayBtn');
+        const radioPrevBtn = document.getElementById('radioPrevBtn');
+        const radioNextBtn = document.getElementById('radioNextBtn');
+        const radioProgress = document.getElementById('radioProgress');
+        const radioSpeedBtn = document.getElementById('radioSpeedBtn');
+
+        const PODCAST_CHANNELS = [
+            { name: "       日语频道        ", url: "" },
+            { name: "The Bite Size Japanese (推荐)", url: "https://anchor.fm/s/463a19c0/podcast/rss" },
+            { name: "Nihongo con Teppei (最火日语 国外)", url: "https://nihongoconteppei.com/feed/podcast/" },
+            { name: "YUYUの日本語Podcast (推荐)", url: "https://anchor.fm/s/cda85d4/podcast/rss" },
+            { name: "N3~N1日本語 Haru no Nihongo", url: "https://anchor.fm/s/26aec4fc/podcast/rss" },
+            { name: "NHK 官方广播新闻 (N2+ 每日更新)", url: "https://www.nhk.or.jp/s-media/news/podcast/list/v1/all.xml" },
+            { name: "NHK 日语会话 (N4-N3 官方)", url: "https://www.nhk.or.jp/lesson/ja/rss/podcast.xml" },
+            { name: "NHK 慢速新闻 (N3-N2 带假名)", url: "https://nhkeasier.com/feed/" },
+            { name: "日本語でしゃべりま Show", url: "https://anchor.fm/s/9fbf9b64/podcast/rss" },
+            { name: "歴史を面白く学ぶコテンラジオ", url: "https://anchor.fm/s/8c2088c/podcast/rss" },
+            { name: "雷獣の声刀 ABC广播", url: "https://feeds.megaphone.fm/ARB4213669399" },
+            { name: "Bilingual News (日英双语 国内)", url: "https://bilingualnews.libsyn.com/rss" },
+            { name: "TBSラジオ", url: "https://feeds.megaphone.fm/TBS3429819532" },
+            { name: "ゆる言語学改造", url: "https://api.robotstart.jp/api/v1/feeds/35d00481/get-feeds/podcast" },
+            { name: "与你日经", url: "https://feeds.megaphone.fm/nagara" },
+            { name: "ゆとりっ娘たちのたわごと", url: "https://anchor.fm/s/6e491dbc/podcast/rss" },
+            { name: "あかね的日本語教室", url: "https://anchor.fm/s/1fe5323c/podcast/rss" },
+
+            { name: "        中文电台        ", url: "" },
+            { name: "日谈公园", url: "http://www.ximalaya.com/album/5574153.xml" },
+            { name: "声东击西", url: "https://feeds.fireside.fm/shengdongjixi/rss" },
+            { name: "忽左忽右", url: "http://www.ximalaya.com/album/12817863.xml" },
+            { name: "罗永浩的十字路口", url: "https://feed.xyzfm.space/wmnkvmrpwuww" },
+            { name: "蕊希电台 (情感)", url: "http://www.ximalaya.com/album/321787.xml" },
+            { name: "简亦FM", url: "http://www.ximalaya.com/album/2665099.xml" },
+            { name: "不明白播客", url: "https://feeds.acast.com/public/shows/68004395b4ef799a7a410371" },
+            { name: "谐星聊天会", url: "https://feeds.danlirencomedy.com/xxlth.xml" },
+            { name: "段子来了", url: "https://www.ximalaya.com/album/203355.xml" },
+            { name: "故事FM", url: "https://feeds.storyfm.cn/storyfm.xml" },
+            { name: "秘史趣谈", url: "http://www.ximalaya.com/album/4661218.xml" },
+            { name: "故事猎手FM", url: "https://s1.proxy.wavpub.com/storyhunting.xml" },
+            { name: "凹凸电波 (超火)", url: "http://www.ximalaya.com/album/19206382.xml" },
+
+            { name: "     故事 & 悬疑     ", url: "" },
+            { name: "深夜小茶馆 (惊悚悬疑)", url: "http://www.ximalaya.com/album/5879804.xml" },
+            { name: "最全大案纪实", url: "http://www.ximalaya.com/album/26669158.xml" },
+            { name: "绝密档案", url: "http://www.ximalaya.com/album/15338996.xml" },
+            { name: "大凯故事", url: "http://www.ximalaya.com/album/4541699.xml" },
+
+            { name: "     有声小说 & 书籍     ", url: "" },
+            { name: "雪中悍刀行", url: "http://www.ximalaya.com/album/2684034.xml" },
+            { name: "王的女人谁敢动", url: "http://www.ximalaya.com/album/19383749.xml" },
+            { name: "诡闻录", url: "http://www.ximalaya.com/album/69474441.xml" },
+            { name: "开棺人", url: "http://www.ximalaya.com/album/70609896.xml" },
+            { name: "民间鬼故事", url: "http://www.ximalaya.com/album/29535750.xml" },
+
+            { name: "      ASMR & 助眠       ", url: "" },
+            { name: "ASMR 助眠", url: "https://www.spreaker.com/show/4721954/episodes/feed" },
+            { name: "温柔女声", url: "https://anchor.fm/s/5f3593f0/podcast/rss" }
+        ];
+        
+        let currentEpisodes = [];
+        let currentEpIndex = 0;
+        let isRadioLoaded = false;
+        const speedOptions = [0.8, 1.0, 1.2, 1.5];
+        let currentSpeedIndex = 1;
+
+        const channelCache = {}; 
+        let currentChannelUrl = ''; 
+
+        radioChannelSelect.innerHTML = PODCAST_CHANNELS.map(ch => {
+            if (!ch.url) {
+                return `<option disabled style="color: #4ade80; font-weight: bold; text-align: center;">${ch.name}</option>`;
+            }
+            return `<option value="${ch.url}">${ch.name}</option>`;
+        }).join('');
+
+        radioToggleBtn.addEventListener('click', () => {
+            radioContainer.classList.toggle('show');
+            radioToggleBtn.classList.toggle('radio-active');
+        });
+
+        radioCloseBtn.addEventListener('click', () => {
+            radioContainer.classList.remove('show');
+            radioToggleBtn.classList.remove('radio-active');
+            radioAudio.pause();
+            radioPlayBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+        });
+
+        async function loadChannel(channelUrl, autoPlay = false) {
+            if (!channelUrl) return; 
+            currentChannelUrl = channelUrl;
+            
+            if (channelCache[channelUrl]) {
+                currentEpisodes = channelCache[channelUrl].episodes;
+                radioEpisodeSelect.innerHTML = currentEpisodes.map((ep, i) => `<option value="${i}">EP ${currentEpisodes.length - i}：${ep.title}</option>`).join('');
+                isRadioLoaded = true;
+                
+                const savedIndex = channelCache[channelUrl].lastIndex || 0;
+                const savedTime = channelCache[channelUrl].lastTime || 0;
+                playEpisode(savedIndex, autoPlay, savedTime);
+                return;
+            }
+
+            radioEpisodeSelect.innerHTML = '<option>🔄 正在连接全网最新信号...</option>';
+            try {
+                const response = await fetch(channelUrl);
+                const xmlText = await response.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                
+                const items = xmlDoc.querySelectorAll("item");
+                currentEpisodes = [];
+                
+                items.forEach((item) => {
+                    const titleNode = item.querySelector("title");
+                    let encNode = item.querySelector("enclosure");
+                    if(!encNode) encNode = item.querySelector("guid[isPermaLink='false']");
+                    
+                    if (titleNode && encNode && encNode.getAttribute("url")) {
+                        currentEpisodes.push({
+                            title: titleNode.textContent.trim(),
+                            url: encNode.getAttribute("url")
+                        });
+                    }
+                });
+                
+                if (currentEpisodes.length > 0) {
+                    channelCache[channelUrl] = { episodes: currentEpisodes, lastIndex: 0, lastTime: 0 };
+                    radioEpisodeSelect.innerHTML = currentEpisodes.map((ep, i) => `<option value="${i}">EP ${currentEpisodes.length - i}：${ep.title}</option>`).join('');
+                    isRadioLoaded = true;
+                    playEpisode(0, autoPlay);
+                } else {
+                    radioEpisodeSelect.innerHTML = '<option>❌ 未找到节目内容，请更换电台</option>';
+                }
+            } catch (err) {
+                radioEpisodeSelect.innerHTML = '<option>📶 信号获取失败，如果开了部分梯子请换全局</option>';
+            }
+        }
+
+        function playEpisode(index, autoPlay = true, resumeTime = 0) {
+            if (!currentEpisodes[index]) return;
+            currentEpIndex = index;
+            radioEpisodeSelect.value = index; 
+            
+            if (currentChannelUrl && channelCache[currentChannelUrl]) {
+                channelCache[currentChannelUrl].lastIndex = index;
+            }
+
+            radioAudio.src = currentEpisodes[index].url;
+            radioAudio.playbackRate = speedOptions[currentSpeedIndex]; 
+            
+            radioProgress.value = 0;
+            radioProgress.style.background = `linear-gradient(to right, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.12) 0%)`;
+
+            if (resumeTime > 0) {
+                radioAudio.addEventListener('loadedmetadata', function setTime() {
+                    radioAudio.currentTime = resumeTime;
+                    radioAudio.removeEventListener('loadedmetadata', setTime); 
+                });
+            }
+
+            if (autoPlay) {
+                radioAudio.play();
+                radioPlayBtn.innerHTML = '<i class="ph-fill ph-pause" style="margin-left:0px;"></i>';
+            } else {
+                radioPlayBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+            }
+        }
+
+        radioChannelSelect.addEventListener('change', (e) => {
+            if (!e.target.value) return; 
+            radioAudio.pause();
+            radioPlayBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+            loadChannel(e.target.value, true); 
+        });
+
+        radioEpisodeSelect.addEventListener('change', (e) => {
+            playEpisode(parseInt(e.target.value), true);
+        });
+
+        radioPlayBtn.addEventListener('click', () => {
+            if (!isRadioLoaded) {
+                const val = radioChannelSelect.value;
+                if (val) loadChannel(val, true);
+            } else {
+                if (radioAudio.paused) {
+                    radioAudio.play();
+                    radioPlayBtn.innerHTML = '<i class="ph-fill ph-pause" style="margin-left:0px;"></i>';
+                } else {
+                    radioAudio.pause();
+                    radioPlayBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+                }
+            }
+        });
+
+        radioPrevBtn.addEventListener('click', () => {
+            if (currentEpisodes.length > 0 && currentEpIndex > 0) playEpisode(currentEpIndex - 1, true); 
+        });
+        
+        radioNextBtn.addEventListener('click', () => {
+            if (currentEpisodes.length > 0 && currentEpIndex < currentEpisodes.length - 1) playEpisode(currentEpIndex + 1, true); 
+        });
+
+        radioSpeedBtn.addEventListener('click', () => {
+            currentSpeedIndex = (currentSpeedIndex + 1) % speedOptions.length;
+            const newSpeed = speedOptions[currentSpeedIndex];
+            radioAudio.playbackRate = newSpeed;
+            radioSpeedBtn.textContent = newSpeed.toFixed(1) + 'x';
+            radioSpeedBtn.style.transform = 'scale(0.9)';
+            setTimeout(() => radioSpeedBtn.style.transform = 'scale(1)', 100);
+        });
+
+        radioAudio.addEventListener('timeupdate', () => {
+            if (radioAudio.duration) {
+                const percent = (radioAudio.currentTime / radioAudio.duration) * 100;
+                radioProgress.value = percent;
+                radioProgress.style.background = `linear-gradient(to right, rgba(255, 255, 255, 0.45) ${percent}%, rgba(255, 255, 255, 0.12) ${percent}%)`;
+                
+                if (currentChannelUrl && channelCache[currentChannelUrl]) {
+                    channelCache[currentChannelUrl].lastTime = radioAudio.currentTime;
+                }
+            }
+        });
+
+        radioProgress.addEventListener('input', (e) => {
+            if (radioAudio.duration) {
+                const percent = parseFloat(e.target.value);
+                radioAudio.currentTime = (percent / 100) * radioAudio.duration;
+                radioProgress.style.background = `linear-gradient(to right, rgba(255, 255, 255, 0.45) ${percent}%, rgba(255, 255, 255, 0.12) ${percent}%)`;
+            }
+        });
+
+        radioAudio.addEventListener('ended', () => {
+            if (currentEpIndex < currentEpisodes.length - 1) {
+                playEpisode(currentEpIndex + 1, true);
+            } else {
+                radioPlayBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+                radioProgress.value = 0;
+            }
+        });
+        // ==================== 播客电台核心逻辑结束 ====================
 
         let tasks = JSON.parse(localStorage.getItem('canvas_todo_tasks_notime')) || [];
         
@@ -978,12 +2227,103 @@
         const draftAddBtn = document.getElementById('draftAddBtn');
 
         function updateWordCount() { wordCount.textContent = noteArea.value.length > 0 ? `${noteArea.value.length} 字` : ''; }
+
+        // ==================== 历史便签存档底层逻辑 ====================
+        let noteHistory = JSON.parse(localStorage.getItem('canvas_todo_note_history')) || [];
+
+        function archiveCurrentNote() {
+            const currentVal = noteArea.value.trim();
+            if (!currentVal) return;
+
+            if (noteHistory.length > 0 && noteHistory[0].text === currentVal) return;
+
+            noteHistory.unshift({
+                id: Date.now(),
+                time: new Date().toLocaleString('zh-CN', { hour12: false }),
+                text: currentVal
+            });
+            
+            if (noteHistory.length > 100) {
+                noteHistory = noteHistory.slice(0, 100);
+            }
+            localStorage.setItem('canvas_todo_note_history', JSON.stringify(noteHistory));
+        }
+
+        function renderNoteHistory() {
+            const listEl = document.getElementById('noteArchiveList');
+            listEl.innerHTML = '';
+            if (noteHistory.length === 0) {
+                listEl.innerHTML = `<div class="empty-gallery"><i class="ph ph-archive" style="font-size: 32px; margin-bottom: 8px;"></i><span>暂无历史便签<br>清空草稿时会自动存档至此</span></div>`;
+                return;
+            }
+            noteHistory.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'note-archive-item';
+                li.innerHTML = `
+                    <div class="note-archive-time"><i class="ph ph-clock"></i> ${item.time}</div>
+                    <div class="note-archive-body"></div>
+                    <div class="note-archive-actions">
+                        <span class="note-archive-btn restore-btn" data-id="${item.id}"><i class="ph ph-arrows-counter-clockwise"></i> 恢复并覆盖</span>
+                        <span class="note-archive-btn del-btn del" data-id="${item.id}"><i class="ph ph-trash"></i> 彻底删除</span>
+                    </div>
+                `;
+                
+                li.querySelector('.note-archive-body').textContent = item.text;
+                
+                li.querySelector('.restore-btn').addEventListener('click', () => {
+                    archiveCurrentNote();
+                    
+                    noteArea.value = item.text;
+                    localStorage.setItem('canvas_todo_note', item.text);
+                    updateWordCount();
+                    
+                    document.getElementById('noteArchiveModal').classList.remove('show');
+                    flipContainer.classList.remove('hide-flipper');
+                });
+                
+                li.querySelector('.del-btn').addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    noteHistory = noteHistory.filter(x => x.id !== item.id);
+                    localStorage.setItem('canvas_todo_note_history', JSON.stringify(noteHistory));
+                    renderNoteHistory();
+                });
+                
+                listEl.appendChild(li);
+            });
+        }
+
+        clearNoteBtn.addEventListener('click', () => {
+            const currentVal = noteArea.value.trim();
+            if (currentVal) {
+                archiveCurrentNote();
+            }
+            noteArea.style.opacity = '0'; 
+            setTimeout(() => { 
+                noteArea.value = ''; 
+                localStorage.setItem('canvas_todo_note', ''); 
+                updateWordCount(); 
+                noteArea.style.opacity = '1'; 
+            }, 200);
+        });
+
+        const noteArchiveBtn = document.getElementById('noteArchiveBtn');
+        const noteArchiveModal = document.getElementById('noteArchiveModal');
+        const closeNoteArchiveBtn = document.getElementById('closeNoteArchiveBtn');
+
+        noteArchiveBtn.addEventListener('click', () => {
+            renderNoteHistory();
+            noteArchiveModal.classList.add('show');
+            flipContainer.classList.add('hide-flipper');
+        });
+
+        closeNoteArchiveBtn.addEventListener('click', () => {
+            noteArchiveModal.classList.remove('show');
+            flipContainer.classList.remove('hide-flipper');
+        });
+        // ==================== 历史便签存档底层逻辑结束 ====================
+
         noteArea.value = localStorage.getItem('canvas_todo_note') || ''; updateWordCount();
         noteArea.addEventListener('input', () => { localStorage.setItem('canvas_todo_note', noteArea.value); updateWordCount(); draftAddBtn.classList.remove('show'); });
-        clearNoteBtn.addEventListener('click', () => {
-            noteArea.style.opacity = '0'; 
-            setTimeout(() => { noteArea.value = ''; localStorage.setItem('canvas_todo_note', ''); updateWordCount(); noteArea.style.opacity = '1'; }, 200);
-        });
 
         noteArea.addEventListener('mouseup', () => {
             const text = window.getSelection().toString().trim();
@@ -1021,6 +2361,573 @@
             historyModal.classList.remove('show'); 
             flipContainer.classList.remove('hide-flipper');
         });
+
+
+        // ==================== 🏆 全新英语背单词 & 自适应艾宾浩斯复习核心引擎 ====================
+        const learningCenterModal = document.getElementById('learningCenterModal');
+        const closeLearningCenterBtn = document.getElementById('closeLearningCenterBtn');
+        const learningCenterBtns = document.querySelectorAll('.learningCenterBtn');
+
+        // Tab 控制元素
+        const tabBtnStudy = document.getElementById('tabBtnStudy');
+        const tabBtnList = document.getElementById('tabBtnList');
+        const vocabStudyView = document.getElementById('vocabStudyView');
+        const vocabListView = document.getElementById('vocabListView');
+
+        // 卡片控制元素
+        const vocabCard = document.getElementById('vocabCard');
+        const vocabDetailsContainer = document.getElementById('vocabDetailsContainer');
+        const vocabBtnDontKnow = document.getElementById('vocabBtnDontKnow');
+        const vocabBtnKnow = document.getElementById('vocabBtnKnow');
+        const vocabProgressText = document.getElementById('vocabProgressText');
+        const vocabProgressBar = document.getElementById('vocabProgressBar');
+        const totalWordCountLabel = document.getElementById('totalWordCountLabel');
+        const vocabSearchInput = document.getElementById('vocabSearchInput');
+        const vocabListScroll = document.getElementById('vocabListScroll');
+
+        // 学习状态与断点机制变量
+        let userVocabDb = [];              // 主数据库：来自于用户导入词本
+        let memoryStates = {};             // 存储每个单词的学习、艾宾浩斯复习级别、掌握状态
+        let currentActiveWord = null;      // 当前正在呈现背诵的生词对象
+        let isDetailsRevealed = false;     // 控制是否隐藏翻译遮罩
+        let studyMode = 'main';            // 模式记忆：'main' 为主进度顺序刷词，'review' 为时间到期复习
+
+        // 分页分批渲染，保障 2000+ 词汇流畅无比
+        let renderedWordCount = 0;
+        const WORDS_PER_PAGE = 80;
+        let filteredUnmasteredWords = [];
+
+        // 获取并结合用户导入的英语词汇
+        function getCombinedVocabDb() {
+            let list = JSON.parse(localStorage.getItem('todo_custom_words')) || [];
+            if (list.length === 0) {
+                list = defaultWords;
+            }
+            return list;
+        }
+
+        // 初始化加载学习状态
+        function loadLearningState() {
+            userVocabDb = getCombinedVocabDb();
+            memoryStates = JSON.parse(localStorage.getItem('canvas_todo_vocab_states')) || {};
+            studyMode = localStorage.getItem('canvas_todo_study_mode') || 'main';
+            totalWordCountLabel.textContent = userVocabDb.length;
+        }
+
+        function saveLearningState() {
+            localStorage.setItem('canvas_todo_vocab_states', JSON.stringify(memoryStates));
+            localStorage.setItem('canvas_todo_study_mode', studyMode);
+            totalWordCountLabel.textContent = userVocabDb.length;
+        }
+
+        // 顺序扫描并自动跳过已掌握(mastered)的词
+        function skipMasteredWords() {
+            let wordIndex = parseInt(localStorage.getItem('todo_word_index')) || 0;
+            const total = userVocabDb.length;
+            if (total === 0) return 0;
+
+            let initialIndex = wordIndex;
+            while (wordIndex < total) {
+                const wordObj = userVocabDb[wordIndex];
+                if (!wordObj) break;
+                const state = memoryStates[wordObj.word];
+                if (state && state.status === 'mastered') {
+                    wordIndex++;
+                } else {
+                    break;
+                }
+            }
+
+            // 越界保护，若越界返回开头重新检索，防丢，实现闭环
+            if (wordIndex >= total) {
+                wordIndex = 0;
+                while (wordIndex < initialIndex) {
+                    const wordObj = userVocabDb[wordIndex];
+                    if (!wordObj) break;
+                    const state = memoryStates[wordObj.word];
+                    if (state && state.status === 'mastered') {
+                        wordIndex++;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            localStorage.setItem('todo_word_index', wordIndex);
+            return wordIndex;
+        }
+
+        // 丝滑展现当前生词卡片（断点记忆与模式分离）
+        function renderNextWord() {
+            isDetailsRevealed = false;
+            if (vocabDetailsContainer) {
+                vocabDetailsContainer.classList.remove('revealed');
+            }
+
+            const now = Date.now();
+
+            // 双核模式切换器高亮同步
+            const modeBtnMain = document.getElementById('modeBtnMain');
+            const modeBtnReview = document.getElementById('modeBtnReview');
+            if (studyMode === 'main') {
+                modeBtnMain.classList.add('active');
+                modeBtnReview.classList.remove('active');
+            } else {
+                modeBtnMain.classList.remove('active');
+                modeBtnReview.classList.add('active');
+            }
+
+            // 统计待复习到期单词数
+            const dueReviewCount = userVocabDb.filter(w => {
+                const state = memoryStates[w.word];
+                return state && state.status === 'reviewing' && state.nextReviewTime <= now;
+            }).length;
+
+            const totalReviewingCount = userVocabDb.filter(w => {
+                const state = memoryStates[w.word];
+                return state && state.status === 'reviewing';
+            }).length;
+
+            document.getElementById('reviewQueueCount').textContent = dueReviewCount;
+
+            if (studyMode === 'main') {
+                // --- 主进度背词模式 ---
+                const totalWords = userVocabDb.length;
+                let wordIndex = skipMasteredWords();
+
+                if (totalWords === 0) {
+                    vocabCard.style.pointerEvents = 'none';
+                    vocabCard.innerHTML = `
+                        <div class="vocab-empty-state">
+                            <i class="ph-bold ph-folder-open vocab-empty-icon"></i>
+                            <div class="vocab-empty-title">暂无词汇数据</div>
+                            <div class="vocab-empty-desc">请通过主页右下角“导入词库”上传你的单词列表。</div>
+                        </div>
+                    `;
+                    vocabBtnDontKnow.disabled = true;
+                    vocabBtnKnow.disabled = true;
+                    currentActiveWord = null;
+                    return;
+                }
+
+                const allMastered = userVocabDb.every(w => memoryStates[w.word] && memoryStates[w.word].status === 'mastered');
+                if (allMastered) {
+                    vocabCard.style.pointerEvents = 'none';
+                    vocabCard.innerHTML = `
+                        <div class="vocab-empty-state">
+                            <i class="ph-bold ph-trophy vocab-empty-icon"></i>
+                            <div class="vocab-empty-title">🎉 恭喜通关！所有词汇均已掌握完毕</div>
+                            <div class="vocab-empty-desc">你可以导入新词本，或点击“词汇管理”查看。</div>
+                        </div>
+                    `;
+                    vocabBtnDontKnow.disabled = true;
+                    vocabBtnKnow.disabled = true;
+                    currentActiveWord = null;
+                    return;
+                }
+
+                // 进度条：只反应一轮通刷的主进度
+                vocabProgressText.textContent = `主进度: ${wordIndex + 1} / ${totalWords}`;
+                const progressPercent = totalWords > 0 ? ((wordIndex + 1) / totalWords) * 100 : 0;
+                vocabProgressBar.style.width = `${progressPercent}%`;
+
+                vocabCard.style.pointerEvents = 'auto';
+                vocabBtnDontKnow.disabled = false;
+                vocabBtnKnow.disabled = false;
+
+                currentActiveWord = userVocabDb[wordIndex];
+            } else {
+                // --- 到期复习模式 ---
+                const dueWords = userVocabDb.filter(w => {
+                    const state = memoryStates[w.word];
+                    return state && state.status === 'reviewing' && state.nextReviewTime <= now;
+                });
+
+                vocabProgressText.textContent = `待复习到期: ${dueWords.length} 个 (复习池中总计: ${totalReviewingCount} 个)`;
+                vocabProgressBar.style.width = `${totalReviewingCount > 0 ? (1 - dueWords.length / totalReviewingCount) * 100 : 100}%`;
+
+                if (dueWords.length === 0) {
+                    vocabCard.style.pointerEvents = 'none';
+
+                    // 检索出复习队列中即将最先到期的卡片，友好提醒
+                    const allReviewing = userVocabDb.filter(w => memoryStates[w.word] && memoryStates[w.word].status === 'reviewing');
+                    let timeHint = "当前没有排队的复习生词。在主进度点击“不认识”即可安排复习。";
+                    if (allReviewing.length > 0) {
+                        const nextDueTime = Math.min(...allReviewing.map(w => memoryStates[w.word].nextReviewTime));
+                        const diffSecs = Math.max(0, Math.round((nextDueTime - now) / 1000));
+                        if (diffSecs > 3600) {
+                            timeHint = `距离下一个待复习卡片到期还有大约 ${Math.round(diffSecs / 3600)} 小时`;
+                        } else if (diffSecs > 60) {
+                            timeHint = `距离下一个待复习卡片到期还有大约 ${Math.round(diffSecs / 60)} 分钟`;
+                        } else {
+                            timeHint = `距离下一个待复习卡片到期还有大约 ${diffSecs} 秒`;
+                        }
+                    }
+
+                    vocabCard.innerHTML = `
+                        <div class="vocab-empty-state">
+                            <i class="ph-bold ph-calendar-check vocab-empty-icon" style="color: #4ade80;"></i>
+                            <div class="vocab-empty-title">👏 收工！到期的单词均已全部复习完毕</div>
+                            <div class="vocab-empty-desc">${timeHint}</div>
+                        </div>
+                    `;
+                    vocabBtnDontKnow.disabled = true;
+                    vocabBtnKnow.disabled = true;
+                    currentActiveWord = null;
+                    return;
+                }
+
+                vocabCard.style.pointerEvents = 'auto';
+                vocabBtnDontKnow.disabled = false;
+                vocabBtnKnow.disabled = false;
+
+                // 排序，优先处理最远最早超时的到期生词
+                dueWords.sort((a, b) => memoryStates[a.word].nextReviewTime - memoryStates[b.word].nextReviewTime);
+                currentActiveWord = dueWords[0];
+            }
+
+            if (!currentActiveWord) return;
+
+            // 完全重绘卡片内部，防止 DOM 状态发生错乱
+            vocabCard.innerHTML = `
+                <div class="vocab-word" id="vocabCardWord" style="color:#4ade80 !important">${currentActiveWord.word}</div>
+                <div class="vocab-phonetic-row">
+                    <span id="vocabCardPhonetic">${currentActiveWord.phonetic || '/ - /'}</span>
+                    <button class="vocab-speaker-btn" id="vocabCardSpeakBtn" title="点击播放发音"><i class="ph-bold ph-speaker-high"></i></button>
+                </div>
+                <div class="vocab-details-container" id="vocabDetailsContainer">
+                    <div class="vocab-trans-text" id="vocabCardTrans" style="color:#ffffff !important">${currentActiveWord.trans}</div>
+                    <div class="vocab-sentence-box" id="vocabSentenceBox" style="display:${(currentActiveWord.sentence) ? 'block' : 'none'};">
+                        <div class="vocab-sentence-en" id="vocabCardSentenceEn">${currentActiveWord.sentence || ''}</div>
+                        <div class="vocab-sentence-zh" id="vocabCardSentenceZh">${currentActiveWord.sentenceTrans || ''}</div>
+                    </div>
+                </div>
+                <div class="vocab-click-hint" id="vocabClickHint"><i class="ph ph-hand-tap"></i> 点击卡片任意处显现翻译</div>
+            `;
+
+            const detailContainer = vocabCard.querySelector('#vocabDetailsContainer');
+            vocabCard.onclick = () => {
+                isDetailsRevealed = true;
+                detailContainer.classList.add('revealed');
+            };
+
+            vocabCard.querySelector('#vocabCardSpeakBtn').onclick = (e) => {
+                e.stopPropagation();
+                playAudio(currentActiveWord.word);
+            };
+
+            // 完美瞬间触发真人发音
+            playAudio(currentActiveWord.word);
+        }
+
+        // 处理认识与不认识卡片交互核心（双模式多频算法）
+        function processLearningResponse(isKnow) {
+            if (!currentActiveWord) return;
+            const word = currentActiveWord.word;
+            playPop();
+
+            // 自适应动力学翻卡划过特效
+            vocabCard.style.transform = isKnow ? 'translateX(100px) rotate(10deg) scale(0.95)' : 'translateX(-100px) rotate(-10deg) scale(0.95)';
+            vocabCard.style.opacity = '0';
+
+            setTimeout(() => {
+                // 安全加载或重建生词状态
+                if (!memoryStates[word]) {
+                    memoryStates[word] = { reviewStage: 0, nextReviewTime: 0, status: 'learning' };
+                }
+
+                if (studyMode === 'main') {
+                    // === 主进度：一直刷模式 ===
+                    if (!isKnow) {
+                        // 如果在主进度点击了“不认识”，立刻打入复习池，级别归零并立刻触发
+                        memoryStates[word].status = 'reviewing';
+                        memoryStates[word].reviewStage = 0;
+                        memoryStates[word].nextReviewTime = Date.now(); 
+                    }
+                    
+                    // 无论认不认识，主进度必定滑移至下一个单词，断点数据立刻保存
+                    let wordIndex = parseInt(localStorage.getItem('todo_word_index')) || 0;
+                    wordIndex++;
+                    if (wordIndex >= userVocabDb.length) {
+                        wordIndex = 0; // 通刷完循环复位
+                    }
+                    localStorage.setItem('todo_word_index', wordIndex);
+                } else {
+                    // === 智能到期复习模式（严格的艾宾浩斯 5 次巩固曲线算法） ===
+                    if (isKnow) {
+                        // 递增复习成功级别
+                        memoryStates[word].reviewStage = (memoryStates[word].reviewStage || 0) + 1;
+                        
+                        if (memoryStates[word].reviewStage >= 5) {
+                            // 认识满 5 次，彻底掌握并功德圆满地移出所有背词循环
+                            memoryStates[word].status = 'mastered';
+                        } else {
+                            // 自适应复习时间计划：
+                            // 1➔2: 1天； 2➔3: 3天； 3➔4: 6天； 4➔5: 7天
+                            const intervals = [
+                                0,
+                                1 * 24 * 60 * 60 * 1000, // 第一次到第二次：1天
+                                3 * 24 * 60 * 60 * 1000, // 第二次到第三次：3天
+                                6 * 24 * 60 * 60 * 1000, // 第三次到第四次：6天
+                                7 * 24 * 60 * 60 * 1000  // 第四次到第五次：7天
+                            ];
+                            const currentInterval = intervals[memoryStates[word].reviewStage] || (1 * 24 * 60 * 60 * 1000);
+                            memoryStates[word].nextReviewTime = Date.now() + currentInterval;
+                        }
+                    } else {
+                        // 在复习时点击“不认识”，重置等级，并且 10 秒后立刻在此复现重新背诵
+                        memoryStates[word].reviewStage = 0;
+                        memoryStates[word].nextReviewTime = Date.now() + 10 * 1000;
+                    }
+                }
+
+                saveLearningState();
+
+                vocabCard.style.transition = 'none';
+                vocabCard.style.transform = 'translateY(15px) scale(0.95)';
+                vocabCard.style.opacity = '0';
+                
+                renderNextWord();
+
+                setTimeout(() => {
+                    vocabCard.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s';
+                    vocabCard.style.transform = 'translateY(0) scale(1)';
+                    vocabCard.style.opacity = '1';
+                }, 30);
+
+            }, 250);
+        }
+
+        // 处理已掌握：打通并彻底同步删除主进度单词
+        function setWordMastered(word) {
+            if (!memoryStates[word]) {
+                memoryStates[word] = { reviewStage: 5, nextReviewTime: 0, status: 'mastered' };
+            } else {
+                memoryStates[word].reviewStage = 5;
+                memoryStates[word].status = 'mastered';
+            }
+            saveLearningState();
+            rebuildLearningSession();
+        }
+
+        // 清空重置记忆曲线
+        window.resetAllVocabMemory = () => {
+            if (confirm("确定要彻底重置当前词本全部单词的记忆级别和复习规划吗？")) {
+                memoryStates = {};
+                localStorage.setItem('todo_word_index', '0');
+                saveLearningState();
+                rebuildLearningSession();
+                renderNextWord();
+            }
+        };
+
+        // 单词库高保真列表管理（支持：分页静默分批追载 + 点击即时自动发音 + 完美果冻消失离场）
+        function renderVocabularyList(resetScroll = true) {
+            if (resetScroll) {
+                vocabListScroll.innerHTML = '';
+                vocabListScroll.scrollTop = 0;
+                renderedWordCount = 0;
+            }
+            
+            const searchKey = vocabSearchInput.value.toLowerCase().trim();
+
+            // 过滤未被彻底标记为已掌握(mastered)的词
+            filteredUnmasteredWords = userVocabDb.filter(item => {
+                if (!item || !item.word) return false;
+                const isMastered = memoryStates[item.word] && memoryStates[item.word].status === 'mastered';
+                if (isMastered) return false;
+
+                if (searchKey) {
+                    return item.word.toLowerCase().includes(searchKey) || item.trans.toLowerCase().includes(searchKey);
+                }
+                return true;
+            });
+
+            if (filteredUnmasteredWords.length === 0 && resetScroll) {
+                vocabListScroll.innerHTML = `
+                    <div class="empty-gallery">
+                        <i class="ph ph-magnifying-glass" style="font-size: 28px;"></i>
+                        <span>没有检索到未掌握单词<br>已背完或可导入自定义生词本</span>
+                    </div>
+                `;
+                return;
+            }
+
+            appendMoreWords();
+        }
+
+        // 高效分批渲染函数（杜绝因一次性生成 2000+ DOM 节点导致的硬性卡顿）
+        function appendMoreWords() {
+            const nextWords = filteredUnmasteredWords.slice(renderedWordCount, renderedWordCount + WORDS_PER_PAGE);
+            if (nextWords.length === 0) return;
+
+            nextWords.forEach(item => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'word-list-item-wrapper';
+                wrapper.dataset.word = item.word;
+
+                // 完美还原英语绿色，中文高雅亮白色，并且默认为模糊磨砂状态
+                wrapper.innerHTML = `
+                    <div class="word-list-item">
+                        <button class="word-list-sound-btn" title="播放发音"><i class="ph-bold ph-speaker-high"></i></button>
+                        <div class="word-list-text-box">
+                            <div class="word-list-term-row">
+                                <span class="word-list-english" style="color: #4ade80 !important; font-weight: bold;">${item.word}</span>
+                                <span class="word-list-phonetic">${item.phonetic || ''}</span>
+                            </div>
+                            <div class="word-list-trans" title="点击可显现/隐藏当前释义">${item.trans}</div>
+                        </div>
+                    </div>
+                    <div class="mastered-slider-btn">已掌握</div>
+                `;
+
+                // 单条点击发音
+                wrapper.querySelector('.word-list-sound-btn').onclick = (e) => {
+                    e.stopPropagation();
+                    playAudio(item.word);
+                };
+
+                // 核心交互：点击文本块切换解锁翻译模糊状态，并同步进行美音自动发音
+                wrapper.querySelector('.word-list-text-box').onclick = (e) => {
+                    e.stopPropagation();
+                    const transEl = wrapper.querySelector('.word-list-trans');
+                    const isRevealed = transEl.classList.toggle('revealed');
+                    if (isRevealed) {
+                        playAudio(item.word);
+                    } else {
+                        playPop(); // 划上遮罩时轻微反馈音
+                    }
+                };
+
+                // 右侧绝对定位的“已掌握”按钮：瞬间触发丝滑果冻消失动画，无感完成后台同步
+                wrapper.querySelector('.mastered-slider-btn').onclick = (e) => {
+                    e.stopPropagation();
+                    playPop();
+                    
+                    // 挂载果冻收缩形变离场类
+                    wrapper.className = 'word-list-item-wrapper word-jelly-out';
+                    
+                    setTimeout(() => {
+                        // 在离场动效结束后直接从 DOM 容器中物理移除
+                        wrapper.remove();
+                        setWordMastered(item.word);
+                        
+                        // 慢速局部减少词库总数标签，不需要重渲染全量列表，极其顺滑
+                        const currentCount = parseInt(totalWordCountLabel.textContent) || 0;
+                        if (currentCount > 0) {
+                            totalWordCountLabel.textContent = currentCount - 1;
+                        }
+                        
+                        // 从检索数组中动态裁剪，维护滚动的边界索引一致性
+                        filteredUnmasteredWords = filteredUnmasteredWords.filter(w => w.word !== item.word);
+                        renderedWordCount = Math.max(0, renderedWordCount - 1);
+                    }, 400); // 严格对应 0.4s keyframe 动画时长
+                };
+
+                vocabListScroll.appendChild(wrapper);
+            });
+
+            renderedWordCount += nextWords.length;
+        }
+
+        // 绑定滚动监听，实现无感滚至底部自动加载下一页
+        vocabListScroll.addEventListener('scroll', () => {
+            if (vocabListScroll.scrollTop + vocabListScroll.clientHeight >= vocabListScroll.scrollHeight - 120) {
+                appendMoreWords();
+            }
+        });
+
+        // 查询搜索事件
+        vocabSearchInput.addEventListener('input', () => {
+            renderVocabularyList(true); // 搜索输入变更时重置并重新执行分页
+        });
+
+        // 页签切换及自适应复盘重载
+        function switchLearningTab(tabName) {
+            tabBtnStudy.classList.remove('active');
+            tabBtnList.classList.remove('active');
+            vocabStudyView.style.display = 'none';
+            vocabListView.style.display = 'none';
+
+            // 确保加载最新最强的数据状态
+            loadLearningState();
+
+            if (tabName === 'study') {
+                tabBtnStudy.classList.add('active');
+                vocabStudyView.style.display = 'flex';
+                rebuildLearningSession();
+                renderNextWord();
+            } else {
+                tabBtnList.classList.add('active');
+                vocabListView.style.display = 'flex';
+                renderVocabularyList(true);
+            }
+        }
+
+        tabBtnStudy.addEventListener('click', () => switchLearningTab('study'));
+        tabBtnList.addEventListener('click', () => switchLearningTab('list'));
+
+        // 控制模式双向切换：主顺序刷词模式 vs 待复习到期模式
+        const modeBtnMain = document.getElementById('modeBtnMain');
+        const modeBtnReview = document.getElementById('modeBtnReview');
+        modeBtnMain.addEventListener('click', () => {
+            studyMode = 'main';
+            saveLearningState();
+            renderNextWord();
+        });
+        modeBtnReview.addEventListener('click', () => {
+            studyMode = 'review';
+            saveLearningState();
+            renderNextWord();
+        });
+
+        vocabBtnDontKnow.addEventListener('click', () => processLearningResponse(false));
+        vocabBtnKnow.addEventListener('click', () => processLearningResponse(true));
+
+        function openLearningCenter() {
+            galleryModal.classList.remove('show');
+            historyModal.classList.remove('show');
+            noteArchiveModal.classList.remove('show');
+            radioContainer.classList.remove('show');
+            radioToggleBtn.classList.remove('radio-active');
+            
+            // 完美继承并恢复之前的断点模式与状态
+            loadLearningState();
+            switchLearningTab('study');
+            
+            learningCenterModal.classList.add('show');
+            flipContainer.classList.add('hide-flipper');
+        }
+
+        function closeLearningCenter() {
+            learningCenterModal.classList.remove('show');
+            flipContainer.classList.remove('hide-flipper');
+        }
+
+        function rebuildLearningSession() {
+            loadLearningState();
+        }
+
+        function syncVocabToLearningCenter() {
+            loadLearningState();
+            rebuildLearningSession();
+            if (learningCenterModal.classList.contains('show')) {
+                renderNextWord();
+                renderVocabularyList(true);
+            }
+        }
+
+        learningCenterBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openLearningCenter();
+            });
+        });
+        closeLearningCenterBtn.addEventListener('click', closeLearningCenter);
+
+        // 页面初始化时，极速预装载并保存
+        loadLearningState();
+        // ==================== 🏆 全新英语背单词高颜值组件结束 ====================
         
         flipToNoteBtn.addEventListener('click', () => { 
             flipContainer.classList.add('flipped'); 
@@ -1041,7 +2948,6 @@
             } else {
                 mainWidget.classList.remove('pinned'); noteWidget.classList.remove('pinned');
                 pinBtns.forEach(btn => { btn.classList.remove('pinned-active'); });
-                // 🌟 修复 Bug：统一改变 lock 状态，不使用暴力 innerHTML 重构，保留绑定
                 const miniLockIcon = document.querySelector('#miniLockBtn i');
                 if (miniLockIcon) {
                     miniLockIcon.className = 'ph-bold ph-lock-open';
@@ -1053,14 +2959,12 @@
         updatePinState(); 
         pinBtns.forEach(btn => { btn.addEventListener('click', () => { isPinned = !isPinned; localStorage.setItem('canvas_todo_pinned', isPinned); updatePinState(); }); });
 
-        // 极简版锁按钮绑定相同的 Pin 逻辑
         document.getElementById('miniLockBtn').addEventListener('click', () => {
             isPinned = !isPinned;
             localStorage.setItem('canvas_todo_pinned', isPinned);
             updatePinState();
         });
 
-        // 极简版循环按钮（切换回主界面）
         document.getElementById('miniCycleBtn').addEventListener('click', () => {
             isMinimalistLayout = false;
             localStorage.setItem('canvas_todo_minimalist_layout', 'false');
@@ -1072,7 +2976,6 @@
         appTitle.addEventListener('input', () => localStorage.setItem('canvas_todo_title', appTitle.value));
         appTitle.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); appTitle.blur(); } });
 
-        // 极简风格可编辑日程标题绑定
         const miniTitleInput = document.getElementById('miniTitleInput');
         miniTitleInput.value = localStorage.getItem('canvas_todo_mini_title') || '日程';
         miniTitleInput.addEventListener('input', () => {
@@ -1098,7 +3001,9 @@
                 if (str[1] === '十') return (map[str[0]] || 0) * 10; 
             }
             if (str.length === 3 && str[1] === '十') return (map[str[0]] || 0) * 10 + (map[str[2]] || 0);
-            return parseInt(str) || 0;
+            
+            const parsed = parseInt(str);
+            return isNaN(parsed) ? 0 : parsed;
         }
 
         function parseTaskTime(text) {
@@ -1122,9 +3027,43 @@
                 targetDate.setMonth(m - 1, d);
             } else if (text.includes('后天')) { hasDate = true; targetDate.setDate(targetDate.getDate() + 2);
             } else if (text.includes('明天') || text.includes('明早') || text.includes('明晚')) { hasDate = true; targetDate.setDate(targetDate.getDate() + 1);
-            } else if (text.includes('今天') || text.includes('今早') || text.includes('今晚')) { hasDate = true; }
+            } else if (text.includes('今天') || text.includes('今早') || text.includes('今晚')) { hasDate = true; 
+            } else {
+                let weekMatch = text.match(/(下+)?(?:星期|周|礼拜)([一二三四五六日天周1234567])/);
+                if (weekMatch) {
+                    hasDate = true;
+                    let isNextWeek = !!weekMatch[1];
+                    let nextWeekCount = weekMatch[1] ? weekMatch[1].length : 0;
+                    let targetDayChar = weekMatch[2];
+                    
+                    const dayMap = {
+                        '一': 1, '1': 1,
+                        '二': 2, '2': 2,
+                        '三': 3, '3': 3,
+                        '四': 4, '4': 4,
+                        '五': 5, '5': 5,
+                        '六': 6, '6': 6,
+                        '日': 7, '天': 7, '周': 7, '7': 7
+                    };
+                    let targetDayNum = dayMap[targetDayChar] || 1;
+                    
+                    let currentDayNum = new Date().getDay();
+                    if (currentDayNum === 0) currentDayNum = 7; 
+                    
+                    let dayDiff = targetDayNum - currentDayNum;
+                    
+                    if (isNextWeek) {
+                        dayDiff += 7 * nextWeekCount;
+                    } else {
+                        if (dayDiff <= 0) {
+                            dayDiff += 7;
+                        }
+                    }
+                    targetDate.setDate(targetDate.getDate() + dayDiff);
+                }
+            }
 
-            let timeMatch = text.match(/(?:(早上|上午|中午|下午|晚上|夜里|凌晨|明早|今早|明晚|今晚)\s*)?(\d+|[原二两三四五六七八九十十一十二]+)(?:点|:|：)(\d+|[一二两三四五六七八九十]+)?(分|半)?/);
+            let timeMatch = text.match(/(?:(早上|上午|中午|下午|晚上|夜里|凌晨|明早|今早|明晚|今晚)\s*)?(\d+|[一二两三四五六七八九十十一十二]+)(?:点|:|：)(\d+|[一二两三四五六七八九十]+)?(分|半)?/);
             if (!timeMatch) timeMatch = text.match(/(早上|上午|中午|下午|晚上|夜里|凌晨|明早|今早|明晚|今晚)?(\d+|[一二两三四五六七八九十十一十二]+)点/);
             
             if (timeMatch) {
@@ -1267,7 +3206,6 @@
             if (needsSave) localStorage.setItem('canvas_todo_tasks_notime', JSON.stringify(tasks));
         }
 
-        // ================= 🌟 极简风格专属渲染引擎 =================
         function renderMinimalistTasks() {
             const miniTaskListEl = document.getElementById('miniTaskList');
             if (!miniTaskListEl) return;
@@ -1322,7 +3260,7 @@
                 checkboxWrapper.addEventListener('click', (e) => {
                     e.stopPropagation();
                     playPop();
-                    task.completed = !task.completed; // 极简模式下切状态保留
+                    task.completed = !task.completed; 
                     if (task.completed && task.recurring && task.targetTime) {
                         const historyClone = {...task, id: Date.now() + Math.random(), completed: true, recurring: false};
                         tasks.push(historyClone);
@@ -1380,7 +3318,7 @@
             }
         });
         
-        taskListEl.addEventListener('drop', e => {
+        taskListEl.addEventListener('dragend', e => {
             const currentIds = Array.from(taskListEl.querySelectorAll('.task-item')).map(item => parseInt(item.dataset.id));
             const activeTasks = currentIds.map(id => tasks.find(t => t.id === id)).filter(t => t);
             const completedTasks = tasks.filter(t => t.completed);
@@ -1454,7 +3392,6 @@
             }
         });
 
-        // ================= 🌟 极简输入框逻辑绑定 =================
         const miniAddTaskBtn = document.getElementById('miniAddTaskBtn');
         const miniInputContainer = document.getElementById('miniInputContainer');
         const miniTaskInput = document.getElementById('miniTaskInput');
@@ -1496,6 +3433,35 @@
         
         renderTasks();
         renderMinimalistTasks();
+        
+        document.getElementById('immersiveStopBtn').addEventListener('click', togglePomodoro);
+
+        let selectOpen = false;
+        
+        document.querySelectorAll('select').forEach(sel => {
+            sel.addEventListener('mousedown', () => {
+                selectOpen = true;
+                if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', true);
+            });
+            
+            sel.addEventListener('change', () => {
+                selectOpen = false;
+                sel.blur(); 
+                if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
+            });
+            
+            sel.addEventListener('blur', () => {
+                selectOpen = false;
+                if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
+            });
+        });
+
+        window.addEventListener('blur', () => {
+            if (selectOpen) {
+                selectOpen = false;
+                if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
+            }
+        });
     </script>
 </body>
 </html>
