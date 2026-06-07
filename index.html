@@ -295,6 +295,19 @@
         .footer-btn:hover { background: rgba(255, 255, 255, 0.2); color: #4ade80; transform: translateY(-1px) scale3d(1.06, 1.06, 1); }
         .footer-btn:active { transform: scale3d(0.9, 0.9, 1); opacity: 0.8; } 
         .eye-hidden { color: #4ade80 !important; }
+        .nhkNewsBtn {
+            width: 100%;
+            box-sizing: border-box;
+            height: 26px;
+            padding: 4px 8px;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 800;
+            color: #86efac;
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(134, 239, 172, 0.28);
+        }
+        .nhkNewsBtn i { font-size: 13px; }
 
        .gallery-modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -342,6 +355,403 @@
         .upload-item:hover { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,0.15); }
         .theme-label { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 12px; color: white; text-shadow: 0 1px 4px rgba(0,0,0,0.8); background: rgba(0,0,0,0.4); padding: 4px 0; pointer-events: none; }
         .empty-gallery { grid-column: span 2; text-align: center; color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+       .nhk-news-modal {
+            padding: 18px;
+            gap: 12px;
+            background: rgba(16, 24, 22, 0.82);
+            backdrop-filter: blur(30px) saturate(130%);
+            -webkit-backdrop-filter: blur(30px) saturate(130%);
+        }
+        .nhk-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-shrink: 0;
+            width: 100%;
+        }
+        .nhk-title-lockup {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            gap: 9px;
+            flex: 1;
+        }
+        .nhk-mark {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #102018;
+            background: #86efac;
+            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.22);
+            flex-shrink: 0;
+        }
+        .nhk-title-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+        .nhk-title-main {
+            font-size: 15px;
+            font-weight: 850;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .nhk-title-sub {
+            font-size: 10.5px;
+            color: rgba(255,255,255,0.48);
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .nhk-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .nhk-icon-action,
+        .nhk-back-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.07);
+            color: rgba(255,255,255,0.86);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, transform 0.2s;
+            font-size: 17px;
+        }
+        .nhk-icon-action:hover,
+        .nhk-back-btn:hover {
+            background: rgba(255,255,255,0.16);
+            color: #86efac;
+            transform: translateY(-1px);
+        }
+        .nhk-icon-action:active,
+        .nhk-back-btn:active { transform: scale(0.92); }
+        .nhk-back-btn[hidden] {
+            display: none !important;
+        }
+        .nhk-source-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            min-height: 22px;
+            color: rgba(255,255,255,0.52);
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .nhk-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-width: 0;
+            color: rgba(255,255,255,0.7);
+        }
+        .nhk-status-pill i { color: #86efac; }
+        .nhk-list-view,
+        .nhk-detail-view {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .nhk-list-view[hidden],
+        .nhk-detail-view[hidden] {
+            display: none !important;
+        }
+        .nhk-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+            margin-right: -5px;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+        .nhk-list::-webkit-scrollbar,
+        .nhk-detail-scroll::-webkit-scrollbar { width: 4px; }
+        .nhk-list::-webkit-scrollbar-track,
+        .nhk-detail-scroll::-webkit-scrollbar-track { background: transparent; }
+        .nhk-list::-webkit-scrollbar-thumb,
+        .nhk-detail-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.22);
+            border-radius: 10px;
+        }
+        .nhk-news-item {
+            width: 100%;
+            text-align: left;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.055);
+            color: #ffffff;
+            padding: 11px 12px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: background 0.18s, border-color 0.18s, transform 0.18s;
+            font-family: inherit;
+            box-sizing: border-box;
+            flex-shrink: 0; /* 极致核心修复：防止新闻在多条目下被 Flex 无限压扁折叠 */
+        }
+        .nhk-news-item:hover {
+            background: rgba(255,255,255,0.105);
+            border-color: rgba(134,239,172,0.28);
+            transform: translateY(-1px);
+        }
+        .nhk-news-item:active { transform: scale(0.985); }
+        .nhk-item-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            color: rgba(255,255,255,0.48);
+            font-size: 10.5px;
+            font-weight: 800;
+        }
+        .nhk-latest-badge {
+            color: #102018;
+            background: #86efac;
+            border-radius: 999px;
+            padding: 2px 7px;
+            letter-spacing: 0;
+        }
+        .nhk-news-title {
+            font-size: 14px;
+            line-height: 1.42;
+            font-weight: 800;
+            color: rgba(255,255,255,0.94);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+            letter-spacing: 0;
+        }
+        .nhk-news-summary {
+            font-size: 12px;
+            line-height: 1.55;
+            color: rgba(255,255,255,0.55);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+            letter-spacing: 0;
+        }
+        .nhk-empty-state {
+            margin: auto;
+            color: rgba(255,255,255,0.52);
+            font-size: 12.5px;
+            line-height: 1.6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+            min-height: 180px;
+        }
+        .nhk-empty-state i {
+            font-size: 32px;
+            color: rgba(134,239,172,0.82);
+        }
+        .nhk-detail-scroll {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+            margin-right: -5px;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+        .nhk-detail-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-bottom: 4px;
+        }
+        .nhk-article-title {
+            margin: 0;
+            font-size: 21px;
+            line-height: 1.35;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 0;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.28);
+            user-select: text;
+            -webkit-user-select: text;
+        }
+        .nhk-article-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255,255,255,0.5);
+            font-size: 11px;
+            font-weight: 750;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+        .nhk-main-image {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.05);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+        }
+       .nhk-media-container {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+            display: flex;
+            flex-direction: column;
+        }
+        .nhk-video-player {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            display: block;
+            outline: none;
+        }
+        .nhk-audio-player {
+            width: 100%;
+            height: 36px;
+            background: rgba(255,255,255,0.08);
+            outline: none;
+        }
+        .nhk-ai-read-btn {
+            width: 100%;
+            padding: 10px;
+            background: rgba(74, 222, 128, 0.15);
+            color: #4ade80;
+            border: none;
+            border-top: 1px solid rgba(74, 222, 128, 0.2);
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .nhk-ai-read-btn:hover {
+            background: rgba(74, 222, 128, 0.25);
+            color: #fff;
+        }
+        .nhk-ai-read-btn:active {
+            background: rgba(74, 222, 128, 0.35);
+        }
+        .nhk-article-body {
+            user-select: text;
+            -webkit-user-select: text;
+            color: rgba(255,255,255,0.9);
+            font-size: 15px;
+            line-height: 1.9;
+            letter-spacing: 0;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            padding-bottom: 4px;
+        }
+        .nhk-article-body * {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+        .nhk-article-body p {
+            margin: 0 0 14px;
+        }
+        .nhk-article-body h2,
+        .nhk-article-body h3 {
+            margin: 18px 0 8px;
+            font-weight: 850;
+            color: #ffffff;
+            line-height: 1.45;
+        }
+        .nhk-article-body ruby rt {
+            color: rgba(134,239,172,0.9);
+            font-size: 0.55em;
+            line-height: 1;
+        }
+        .hide-furigana ruby rt {
+            display: none !important;
+        }
+        .nhk-article-body img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.12);
+            margin: 4px 0 10px;
+        }
+        .nhk-article-body ul,
+        .nhk-article-body ol {
+            margin: 0 0 14px 20px;
+            padding: 0;
+        }
+        .nhk-article-body li { margin-bottom: 6px; }
+        .nhk-error-panel {
+            margin-top: 8px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(248, 113, 113, 0.45);
+            background: rgba(127, 29, 29, 0.35);
+            flex-shrink: 0;
+        }
+        .nhk-error-panel[hidden] { display: none !important; }
+        .nhk-error-title {
+            font-size: 12px;
+            font-weight: 800;
+            color: #fca5a5;
+            margin-bottom: 6px;
+        }
+        .nhk-error-detail {
+            margin: 0;
+            font-size: 10px;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.82);
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: Consolas, 'Courier New', monospace;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .nhk-char-badge {
+            font-size: 10px;
+            color: rgba(134, 239, 172, 0.85);
+            font-weight: 700;
+        }
+        .nhk-audio-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 700;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
         .minimalist-container {
             display: none;
@@ -1221,6 +1631,10 @@
                             <i class="ph ph-graduation-cap" style="font-size: 13px;"></i>
                             <span>学习中心</span>
                         </div>
+                        <div class="footer-btn nhkNewsBtn" id="nhkNewsBtn" title="NHK Easy 日语短文阅读">
+                            <i class="ph ph-newspaper"></i>
+                            <span>NHK Easy</span>
+                        </div>
                     </div>
                 </div>
 
@@ -1390,6 +1804,41 @@
                 <div class="vocab-list-scroll" id="vocabListScroll"></div>
             </div>
         </div>
+
+        <div class="gallery-modal nhk-news-modal" id="nhkNewsModal">
+            <div class="nhk-panel-header">
+                <!-- 左侧返回箭头：仅在阅读详情页时展现，点击退回新闻列表 -->
+                <button class="nhk-back-btn" id="nhkBackBtn" type="button" title="返回列表" hidden><i class="ph ph-arrow-left"></i></button>
+                <div class="nhk-title-lockup">
+                    <div class="nhk-mark"><i class="ph-bold ph-newspaper"></i></div>
+                    <div class="nhk-title-text">
+                        <span class="nhk-title-main" id="nhkPanelTitle">NHK Easy 日语短文</span>
+                        <span class="nhk-title-sub" id="nhkPanelSub">带假名注音 · 官方朗读 · 100~300字</span>
+                    </div>
+                </div>
+                <div class="nhk-header-actions">
+                    <button class="nhk-icon-action" id="nhkRefreshBtn" type="button" title="刷新新闻"><i class="ph ph-arrows-clockwise"></i></button>
+                    <!-- 升级版右上角按键：在列表状态显示为“主页（ph-house）”，在阅读状态显示为“向左返回箭头”，实现完美智能返回 -->
+                    <button class="nhk-icon-action" id="closeNhkNewsBtn" type="button" title="返回主页"><i class="ph ph-house" id="nhkCloseIcon"></i></button>
+                </div>
+            </div>
+            <div class="nhk-source-row">
+                <span class="nhk-status-pill" id="nhkStatusText"><i class="ph ph-circle-notch"></i> 等待加载</span>
+                <span id="nhkUpdatedAt">--</span>
+            </div>
+
+            <div class="nhk-list-view" id="nhkListView">
+                <div class="nhk-list" id="nhkNewsList"></div>
+            </div>
+
+            <div class="nhk-detail-view" id="nhkDetailView" hidden>
+                <div class="nhk-error-panel" id="nhkErrorPanel" hidden>
+                    <div class="nhk-error-title" id="nhkErrorTitle">加载失败</div>
+                    <pre class="nhk-error-detail" id="nhkErrorDetail"></pre>
+                </div>
+                <div class="nhk-detail-scroll" id="nhkDetailScroll"></div>
+            </div>
+        </div>
     </div>
 
     <!-- 扩展 input 的接收类型，允许上传表格格式 -->
@@ -1407,7 +1856,7 @@
         document.addEventListener('pointerdown', (e) => {
             if (e.button !== 0) return; 
 
-            if (e.target.closest('.icon-btn, .mini-icon-btn, input, textarea, .list-container, .mini-list-container, .gallery-grid, .close-btn, .progress-wrapper, .draft-add-btn, .word-text-box, .pill-style, .radio-container, .learning-center-modal, .vocab-card, .vocab-btn, .vocab-search-input, .vocab-list-scroll')) {
+            if (e.target.closest('.icon-btn, .mini-icon-btn, input, textarea, .list-container, .mini-list-container, .gallery-grid, .close-btn, .progress-wrapper, .draft-add-btn, .word-text-box, .pill-style, .radio-container, .learning-center-modal, .nhk-news-modal, .vocab-card, .vocab-btn, .vocab-search-input, .vocab-list-scroll')) {
                 return;
             }
             
@@ -1451,6 +1900,7 @@
 
         document.addEventListener('contextmenu', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return; 
+            if (e.target.closest('.nhk-article-body')) return;
             e.preventDefault();
             if (typeof ipcRenderer !== 'undefined') {
                 ipcRenderer.send('show-context-menu');
@@ -1503,8 +1953,9 @@
             const frontEl = document.getElementById('mainWidget');
             const backEl = document.getElementById('noteWidget');
             const learningEl = document.getElementById('learningCenterModal');
+            const nhkEl = document.getElementById('nhkNewsModal');
 
-            [frontEl, backEl, learningEl].forEach(el => {
+            [frontEl, backEl, learningEl, nhkEl].forEach(el => {
                 if (el) {
                     el.style.background = theme.bg; el.style.backgroundSize = theme.size || "auto"; el.style.backgroundPosition = "center";
                     el.style.borderColor = theme.border; el.style.backdropFilter = theme.filter; el.style.webkitBackdropFilter = theme.filter;
@@ -2206,6 +2657,972 @@
             }
         });
         // ==================== 播客电台核心逻辑结束 ====================
+
+        // ==================== NHK Easy 日语短文阅读（方案 A 官方 JSON + 方案 B nhkeasier RSS） ====================
+        const nhkNewsModal = document.getElementById('nhkNewsModal');
+        const closeNhkNewsBtn = document.getElementById('closeNhkNewsBtn');
+        const nhkBackBtn = document.getElementById('nhkBackBtn');
+        const nhkRefreshBtn = document.getElementById('nhkRefreshBtn');
+        const nhkNewsList = document.getElementById('nhkNewsList');
+        const nhkListView = document.getElementById('nhkListView');
+        const nhkDetailView = document.getElementById('nhkDetailView');
+        const nhkDetailScroll = document.getElementById('nhkDetailScroll');
+        const nhkStatusText = document.getElementById('nhkStatusText');
+        const nhkUpdatedAt = document.getElementById('nhkUpdatedAt');
+        const nhkPanelTitle = document.getElementById('nhkPanelTitle');
+        const nhkPanelSub = document.getElementById('nhkPanelSub');
+        const nhkErrorPanel = document.getElementById('nhkErrorPanel');
+        const nhkErrorTitle = document.getElementById('nhkErrorTitle');
+        const nhkErrorDetail = document.getElementById('nhkErrorDetail');
+        const nhkNewsBtns = document.querySelectorAll('.nhkNewsBtn');
+
+        const NHK_EASY_LIST_URL = 'https://www3.nhk.or.jp/news/easy/news-list.json';
+        const NHK_EASY_BASE = 'https://www3.nhk.or.jp/news/easy/';
+        const NHK_EASIER_RSS_URL = 'https://nhkeasier.com/feed/';
+        const NHK_REFRESH_INTERVAL = 20 * 60 * 1000;
+        const NHK_AUTO_REFRESH_INTERVAL = 30 * 60 * 1000;
+
+        let nhkItems = [];
+        let nhkLastLoadedAt = 0;
+        let nhkLoadingList = false;
+        let nhkActiveSource = '';
+        let nhkTtsController = null;
+
+        function nhkSetStatus(text, iconClass = 'ph-circle-notch') {
+            nhkStatusText.innerHTML = `<i class="ph ${iconClass}"></i> ${nhkEscapeHtml(text)}`;
+        }
+
+        function nhkEscapeHtml(value = '') {
+            return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        }
+
+        function nhkEscapeAttr(value = '') {
+            return nhkEscapeHtml(value).replace(/`/g, '&#96;');
+        }
+
+        function nhkCleanText(value = '') {
+            return String(value).replace(/\s+/g, ' ').trim();
+        }
+
+        function nhkStripHtml(value = '') {
+            const box = document.createElement('div');
+            box.innerHTML = value || '';
+            return nhkCleanText(box.textContent || '');
+        }
+
+        function nhkNormalizeUrl(value, baseUrl) {
+            if (!value) return '';
+            let cleaned = String(value).replace(/&amp;/g, '&').trim();
+            if (!cleaned) return '';
+            try {
+                if (cleaned.startsWith('//')) cleaned = `https:${cleaned}`;
+                return new URL(cleaned, baseUrl).href;
+            } catch (err) { return ''; }
+        }
+
+        function nhkDateMs(value) {
+            const ms = Date.parse(value || '');
+            return Number.isNaN(ms) ? 0 : ms;
+        }
+
+        function nhkFormatDate(value) {
+            const ms = nhkDateMs(value);
+            if (!ms) return value || '';
+            return new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+        }
+
+        function nhkCountChars(html = '') {
+            return nhkStripHtml(html).replace(/\s/g, '').length;
+        }
+
+        function nhkHideError() {
+            if (nhkErrorPanel) nhkErrorPanel.hidden = true;
+            if (nhkErrorDetail) nhkErrorDetail.textContent = '';
+        }
+
+        function nhkShowError(context, error, extra = {}) {
+            const info = {
+                阶段: context,
+                类型: error?.name || 'Error',
+                消息: error?.message || String(error),
+                数据源: nhkActiveSource || '未知',
+                时间: new Date().toLocaleString('zh-CN'),
+                ...extra
+            };
+            if (nhkErrorPanel) nhkErrorPanel.hidden = false;
+            if (nhkErrorTitle) nhkErrorTitle.textContent = `加载失败 · ${context}`;
+            if (nhkErrorDetail) nhkErrorDetail.textContent = JSON.stringify(info, null, 2);
+            nhkSetStatus(`失败: ${info.消息}`, 'ph-warning-circle');
+            return info;
+        }
+
+        async function nhkFetchText(url) {
+            if (typeof ipcRenderer !== 'undefined' && ipcRenderer.invoke) {
+                const result = await ipcRenderer.invoke('universal-fetch-text', url);
+                if (!result || !result.ok) {
+                    const err = new Error((result && result.error) || '主进程请求失败');
+                    err.httpStatus = result && result.status;
+                    err.finalUrl = result && result.url;
+                    throw err;
+                }
+                return result;
+            }
+            const response = await fetch(url);
+            if (!response.ok) {
+                const err = new Error(`HTTP ${response.status}`);
+                err.httpStatus = response.status;
+                throw err;
+            }
+            return {
+                ok: true,
+                url: response.url,
+                status: response.status,
+                contentType: response.headers.get('content-type') || '',
+                text: await response.text()
+            };
+        }
+
+        function nhkIsOverseasBlock(html = '') {
+            return /海外からの|Access from outside Japan|geo.?block|お住まいの地域/i.test(html);
+        }
+
+        function parseNhkEasyList(rawText) {
+            const cleaned = String(rawText || '').replace(/^\uFEFF/, '').trim();
+            const json = JSON.parse(cleaned);
+            const items = [];
+            if (!Array.isArray(json)) throw new Error('NHK Easy JSON 格式异常（非数组）');
+
+            json.forEach((dayBlock) => {
+                if (!dayBlock || typeof dayBlock !== 'object') return;
+                Object.keys(dayBlock).forEach((dateKey) => {
+                    const entries = dayBlock[dateKey];
+                    if (!Array.isArray(entries)) return;
+                    entries.forEach((entry) => {
+                        if (!entry || !entry.news_id) return;
+                        const newsId = entry.news_id;
+                        const imageUrl = entry.has_news_web_image && entry.news_web_image_uri
+                            ? `${NHK_EASY_BASE}${newsId}/${entry.news_web_image_uri}`
+                            : '';
+                        const audioUrl = entry.has_news_easy_voice && entry.news_easy_voice_uri
+                            ? `${NHK_EASY_BASE}${newsId}/${entry.news_easy_voice_uri}`
+                            : '';
+                        const title = nhkCleanText(entry.title || '');
+                        const url = entry.news_web_url || `${NHK_EASY_BASE}${newsId}/${newsId}.html`;
+                        const published = entry.news_prearranged_time || entry.news_publication_time || dateKey;
+                        const summarySource = title;
+
+                        items.push({
+                            id: newsId,
+                            sourceLabel: 'NHK Easy',
+                            source: 'nhk-official',
+                            title,
+                            summary: summarySource.length > 72 ? `${summarySource.slice(0, 72)}…` : summarySource,
+                            url,
+                            published,
+                            imageUrl,
+                            audioUrl,
+                            sortTime: nhkDateMs(published) || nhkDateMs(dateKey),
+                            bodyHtml: '',
+                            charCount: 0
+                        });
+                    });
+                });
+            });
+
+            return items
+                .sort((a, b) => (b.sortTime || 0) - (a.sortTime || 0))
+                .slice(0, 30);
+        }
+
+        function parseNhkEasierRss(rawText, feedUrl) {
+            const xml = new DOMParser().parseFromString(rawText, 'text/xml');
+            if (xml.querySelector('parsererror')) throw new Error('nhkeasier RSS 解析失败');
+
+            return Array.from(xml.querySelectorAll('item')).map((item, index) => {
+                const title = nhkCleanText(item.querySelector('title')?.textContent || '');
+                const link = item.querySelector('link')?.textContent || item.querySelector('guid')?.textContent || '';
+                const published = item.querySelector('pubDate')?.textContent || '';
+                const descRaw = item.querySelector('description')?.textContent || '';
+                const doc = new DOMParser().parseFromString(descRaw, 'text/html');
+
+                doc.querySelectorAll('script, style, ul, audio').forEach(el => el.remove());
+
+                const paragraphs = Array.from(doc.querySelectorAll('p'))
+                    .filter(p => nhkCleanText(p.textContent).length > 0);
+                const bodyHtml = paragraphs.map(p => p.outerHTML).join('');
+
+                let imageUrl = doc.querySelector('img')?.getAttribute('src') || '';
+                imageUrl = nhkNormalizeUrl(imageUrl, feedUrl);
+
+                const audioUrl = nhkNormalizeUrl(
+                    item.querySelector('enclosure')?.getAttribute('url')
+                    || doc.querySelector('audio')?.getAttribute('src')
+                    || '',
+                    feedUrl
+                );
+
+                const plain = nhkStripHtml(bodyHtml);
+                const charCount = plain.replace(/\s/g, '').length;
+
+                return {
+                    id: item.querySelector('guid')?.textContent || link || String(index),
+                    sourceLabel: 'NHK Easy ',
+                    source: 'nhkeasier',
+                    title,
+                    summary: plain.length > 72 ? `${plain.slice(0, 72)}…` : plain,
+                    url: link,
+                    published,
+                    imageUrl,
+                    audioUrl,
+                    sortTime: nhkDateMs(published) || (Date.now() - index * 1000),
+                    bodyHtml,
+                    charCount
+                };
+            }).filter(item => item.title && item.bodyHtml);
+        }
+
+        function sanitizeNhkBodyHtml(container, baseUrl) {
+            if (!container) return '';
+            const clone = container.cloneNode(true);
+            clone.querySelectorAll('script, style, iframe, form, noscript').forEach(el => el.remove());
+
+            clone.querySelectorAll('img').forEach(img => {
+                const src = img.getAttribute('src') || img.getAttribute('data-src');
+                if (src && !src.includes('data:image')) {
+                    img.setAttribute('src', nhkNormalizeUrl(src, baseUrl));
+                    img.removeAttribute('srcset');
+                } else {
+                    img.remove();
+                }
+            });
+
+            clone.querySelectorAll('a').forEach(a => {
+                const span = document.createElement('span');
+                span.innerHTML = a.innerHTML;
+                a.replaceWith(span);
+            });
+
+            return clone.innerHTML.trim();
+        }
+
+        function parseNhkEasyArticleHtml(html, item, finalUrl) {
+            if (nhkIsOverseasBlock(html)) {
+                const err = new Error('OVERSEAS_BLOCK');
+                err.code = 'OVERSEAS_BLOCK';
+                throw err;
+            }
+
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const title = nhkCleanText(
+                doc.querySelector('.article-main__title')?.textContent
+                || doc.querySelector('h1')?.textContent
+                || item.title
+            );
+            const time = doc.querySelector('#js-article-date')?.textContent?.trim()
+                || doc.querySelector('time[datetime]')?.getAttribute('datetime')
+                || item.published
+                || '';
+
+            const bodyNode = doc.querySelector('#js-article-body')
+                || doc.querySelector('.article-body')
+                || doc.querySelector('[id*="article-body"]');
+
+            if (!bodyNode) {
+                const err = new Error('未找到正文容器 #js-article-body');
+                err.code = 'BODY_NOT_FOUND';
+                throw err;
+            }
+
+            const bodyHtml = sanitizeNhkBodyHtml(bodyNode, finalUrl || item.url);
+            const charCount = nhkCountChars(bodyHtml);
+
+            if (charCount < 30) {
+                const err = new Error(`正文过短（${charCount}字），可能抓取不完整`);
+                err.code = 'BODY_TOO_SHORT';
+                err.charCount = charCount;
+                throw err;
+            }
+
+            let imageUrl = item.imageUrl;
+            if (!imageUrl) {
+                const img = bodyNode.querySelector('img');
+                if (img) imageUrl = nhkNormalizeUrl(img.getAttribute('src'), finalUrl || item.url);
+            }
+
+            return {
+                title,
+                time,
+                imageUrl,
+                audioUrl: item.audioUrl || '',
+                bodyHtml,
+                charCount,
+                sourceLabel: item.sourceLabel
+            };
+        }
+
+        async function loadNhkEasyOfficialList() {
+            const result = await nhkFetchText(NHK_EASY_LIST_URL);
+            if (nhkIsOverseasBlock(result.text)) {
+                const err = new Error('OVERSEAS_BLOCK');
+                err.code = 'OVERSEAS_BLOCK';
+                err.url = result.url;
+                throw err;
+            }
+            const items = parseNhkEasyList(result.text);
+            if (!items.length) throw new Error('NHK Easy 列表为空');
+            return { items, source: 'nhk-official', label: 'NHK 官方 JSON' };
+        }
+
+        async function loadNhkEasierList() {
+            const result = await nhkFetchText(NHK_EASIER_RSS_URL);
+            const items = parseNhkEasierRss(result.text, result.url || NHK_EASIER_RSS_URL);
+            if (!items.length) throw new Error('nhkeasier RSS 列表为空');
+            return { items, source: 'nhkeasier', label: '实时更新' };
+        }
+
+        async function nhkLoadNews(force = false) {
+            if (nhkLoadingList) return;
+            if (!force && nhkItems.length && Date.now() - nhkLastLoadedAt < NHK_REFRESH_INTERVAL) {
+                nhkRenderList();
+                return;
+            }
+
+            nhkLoadingList = true;
+            nhkHideError();
+            nhkSetStatus('正在获取 NHK Easy 列表…');
+            nhkNewsList.innerHTML = `<div class="nhk-empty-state"><i class="ph ph-circle-notch"></i><span>正在连接 NHK NEWS WEB EASY…</span></div>`;
+
+            const errors = [];
+            let loaded = null;
+
+            try {
+                loaded = await loadNhkEasyOfficialList();
+            } catch (error) {
+                errors.push({ 方案: 'A 官方 JSON', 错误: error.message, url: NHK_EASY_LIST_URL });
+                nhkSetStatus('官方源失败，尝试镜像…', 'ph-warning-circle');
+                try {
+                    loaded = await loadNhkEasierList();
+                } catch (fallbackError) {
+                    errors.push({ 方案: 'B nhkeasier RSS', 错误: fallbackError.message, url: NHK_EASIER_RSS_URL });
+                }
+            }
+
+            nhkLoadingList = false;
+
+            if (!loaded) {
+                nhkItems = [];
+                nhkShowError('列表加载', new Error('所有数据源均失败'), { 尝试记录: errors });
+                nhkNewsList.innerHTML = `<div class="nhk-empty-state"><i class="ph ph-warning-circle"></i><span>无法加载新闻列表，请查看上方红色错误详情。</span></div>`;
+                nhkUpdatedAt.textContent = '--';
+                return;
+            }
+
+            nhkItems = loaded.items;
+            nhkActiveSource = loaded.label;
+            nhkLastLoadedAt = Date.now();
+
+            nhkSetStatus(`${loaded.label} · ${nhkItems.length} 篇`, 'ph-check-circle');
+            nhkUpdatedAt.textContent = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+            nhkRenderList();
+        }
+
+        function nhkRenderList() {
+            nhkShowList();
+            nhkNewsList.innerHTML = '';
+            if (!nhkItems.length) {
+                nhkNewsList.innerHTML = `<div class="nhk-empty-state"><i class="ph ph-newspaper"></i><span>还没有列表，点刷新试试。</span></div>`;
+                return;
+            }
+
+            nhkItems.forEach((item, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'nhk-news-item glare-effect';
+                const charHint = item.charCount ? ` · ${item.charCount}字` : '';
+                button.innerHTML = `
+                    <div class="nhk-item-top">
+                        <span>${index === 0 ? '<span class="nhk-latest-badge">最新</span>' : nhkEscapeHtml(item.sourceLabel)}</span>
+                        <span>${nhkEscapeHtml(nhkFormatDate(item.published))}${charHint}</span>
+                    </div>
+                    <div class="nhk-news-title">${nhkEscapeHtml(item.title)}</div>
+                    <div class="nhk-news-summary">${nhkEscapeHtml(item.summary)}</div>
+                `;
+                button.addEventListener('click', () => nhkOpenDetail(item));
+                bindGlareEffect(button);
+                nhkNewsList.appendChild(button);
+            });
+        }
+
+        function nhkStopMedia() {
+            if (nhkTtsController) {
+                nhkTtsController.stop();
+                nhkTtsController = null;
+            }
+            const activeAudio = nhkDetailScroll.querySelector('audio');
+            if (activeAudio) {
+                activeAudio.pause();
+                activeAudio.src = '';
+            }
+            window.speechSynthesis.cancel();
+        }
+
+        function nhkShowList() {
+            nhkPanelTitle.textContent = 'NHK ';
+            nhkPanelSub.textContent = nhkActiveSource ? `${nhkActiveSource} · 带假名注音` : '带假名注音 · 官方朗读 · 100~300字';
+            nhkBackBtn.hidden = true;
+            nhkHideError();
+
+            const closeIcon = document.getElementById('nhkCloseIcon');
+            if (closeIcon) closeIcon.className = 'ph ph-house';
+            const closeBtn = document.getElementById('closeNhkNewsBtn');
+            if (closeBtn) closeBtn.title = '返回主页';
+
+            nhkListView.hidden = false;
+            nhkDetailView.hidden = true;
+            nhkStopMedia();
+            nhkDetailScroll.innerHTML = '';
+        }
+
+        function nhkArticleLoading(item) {
+            nhkPanelTitle.textContent = '加载中…';
+            nhkPanelSub.textContent = item.title;
+            nhkHideError();
+            nhkDetailScroll.innerHTML = `<div class="nhk-empty-state"><i class="ph ph-circle-notch"></i><span>正在获取完整短文（含假名注音）…</span></div>`;
+        }
+
+        async function nhkOpenDetail(item) {
+            if (window.radioAudio && !window.radioAudio.paused) {
+                window.radioAudio.pause();
+                const rBtn = document.getElementById('radioPlayBtn');
+                if (rBtn) rBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+            }
+
+            nhkBackBtn.hidden = false;
+            const closeIcon = document.getElementById('nhkCloseIcon');
+            if (closeIcon) closeIcon.className = 'ph ph-arrow-left';
+            const closeBtn = document.getElementById('closeNhkNewsBtn');
+            if (closeBtn) closeBtn.title = '返回列表';
+
+            nhkListView.hidden = true;
+            nhkDetailView.hidden = false;
+            nhkDetailScroll.scrollTop = 0;
+            nhkArticleLoading(item);
+            nhkSetStatus('正在加载正文…', 'ph-circle-notch');
+
+            try {
+                let article;
+
+                if (item.bodyHtml && item.source === 'nhkeasier') {
+                    article = {
+                        title: item.title,
+                        time: item.published,
+                        imageUrl: item.imageUrl,
+                        audioUrl: item.audioUrl,
+                        bodyHtml: item.bodyHtml,
+                        charCount: item.charCount || nhkCountChars(item.bodyHtml),
+                        sourceLabel: item.sourceLabel
+                    };
+                } else {
+                    const result = await nhkFetchText(item.url);
+                    article = parseNhkEasyArticleHtml(result.text, item, result.url || item.url);
+                }
+
+                nhkRenderArticle(article);
+                nhkHideError();
+                const audioHint = article.audioUrl ? ' · NHK原声' : ' · TTS朗读';
+                nhkSetStatus(`已加载 ${article.charCount || nhkCountChars(article.bodyHtml)} 字${audioHint}`, 'ph-check-circle');
+            } catch (error) {
+                if (error.code === 'OVERSEAS_BLOCK' && item.source !== 'nhkeasier') {
+                    nhkSetStatus('官方页被拦截，尝试镜像正文…', 'ph-warning-circle');
+                    try {
+                        const mirrorItems = await loadNhkEasierList();
+                        const mirror = mirrorItems.items.find(m => m.title === item.title)
+                            || mirrorItems.items.find(m => m.id === item.id)
+                            || mirrorItems.items[0];
+                        if (mirror && mirror.bodyHtml) {
+                            nhkRenderArticle({
+                                title: mirror.title,
+                                time: mirror.published,
+                                imageUrl: mirror.imageUrl || item.imageUrl,
+                                audioUrl: mirror.audioUrl || item.audioUrl,
+                                bodyHtml: mirror.bodyHtml,
+                                charCount: mirror.charCount,
+                                sourceLabel: 'NHK Easy 镜像（降级）'
+                            });
+                            nhkHideError();
+                            nhkSetStatus(`镜像降级成功 · ${mirror.charCount} 字`, 'ph-info');
+                            return;
+                        }
+                    } catch (mirrorErr) {
+                        error.mirrorError = mirrorErr.message;
+                    }
+                }
+
+                nhkShowError('正文加载', error, {
+                    文章标题: item.title,
+                    请求URL: item.url,
+                    数据源: item.sourceLabel
+                });
+                nhkRenderArticle({
+                    title: item.title,
+                    time: item.published,
+                    imageUrl: item.imageUrl,
+                    audioUrl: item.audioUrl,
+                    bodyHtml: `<p>${nhkEscapeHtml(item.summary || '正文加载失败，请查看上方错误详情。')}</p>`,
+                    charCount: 0,
+                    sourceLabel: item.sourceLabel,
+                    loadFailed: true
+                });
+            }
+        }
+
+        function nhkGetJapaneseVoice() {
+            const voices = window.speechSynthesis.getVoices();
+            return voices.find(v => v.lang.startsWith('ja') && /japan|ja-|nanami|keita|haruka|ayumi/i.test(v.name))
+                || voices.find(v => v.lang.startsWith('ja') && !/chinese|zh/i.test(v.name))
+                || voices.find(v => v.lang.startsWith('ja'))
+                || null;
+        }
+
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => { nhkGetJapaneseVoice(); };
+            nhkGetJapaneseVoice();
+        }
+
+        function nhkSplitJapaneseSentences(text) {
+            return String(text || '')
+                .replace(/\r/g, '')
+                .split(/(?<=[。．！？!?、])\s*/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+        }
+
+       function nhkCreateTtsController(bodyContainer, playBtn, progressEl, speedBtn, speeds) {
+            let currentSpeedIdx = 1; // 默认使用索引 1，即 1.0x
+            let playing = false;
+            let cancelled = false;
+            let pIndex = 0; // 改为按段落 (Paragraph) 索引
+            let pNodes = []; // 存储段落 DOM 节点
+            let sentences = []; // 存储对应的纯文本
+            let currentAudio = null;
+
+            function setProgress(pct) {
+                progressEl.value = pct;
+                progressEl.style.background = `linear-gradient(to right, #4ade80 ${pct}%, rgba(255,255,255,0.2) ${pct}%)`;
+            }
+
+            // 清除所有高亮
+            function clearHighlight() {
+                pNodes.forEach(p => {
+                    p.style.color = '';
+                    p.style.background = '';
+                    p.style.borderRadius = '';
+                    p.style.padding = '';
+                });
+            }
+
+            function stop() {
+                cancelled = true;
+                playing = false;
+                clearHighlight();
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio.removeAttribute('src');
+                    currentAudio.load(); 
+                    currentAudio = null;
+                }
+                window.speechSynthesis.cancel();
+                playBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left: 2px;"></i>';
+            }
+
+            // 【层级四】极速本地降级引擎 (兜底，防断网)
+            function playWithLocalTts(text) {
+                window.speechSynthesis.cancel(); 
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'ja-JP';
+                u.rate = speeds[currentSpeedIdx];
+                u.onend = () => onAudioEnd();
+                u.onerror = () => onAudioEnd(); // 出错也硬跳入下一句，防卡死
+                window.speechSynthesis.speak(u);
+            }
+
+            // 【层级三】百度翻译日语TTS (国内可用，无需翻墙)
+            function playWithBaiduTts(text) {
+                if (cancelled) return;
+                let fallbackTriggered = false;
+                
+                const url = `https://fanyi.baidu.com/gettts?lan=jp&text=${encodeURIComponent(text)}&spd=3&source=web`;
+                
+                const fetchAudio = (typeof ipcRenderer !== 'undefined' && ipcRenderer.invoke) 
+                    ? () => ipcRenderer.invoke('universal-fetch-audio', url)
+                    : () => Promise.resolve({ ok: false, error: 'IPC不可用' });
+                
+                let timeoutTimer = setTimeout(() => {
+                    if(!fallbackTriggered) { fallbackTriggered = true; playWithLocalTts(text); }
+                }, 5000);
+                
+                fetchAudio().then(result => {
+                    if (fallbackTriggered || cancelled) return;
+                    clearTimeout(timeoutTimer);
+                    if (result.ok && result.audio) {
+                        const audioUrl = `data:${result.contentType || 'audio/mpeg'};base64,${result.audio}`;
+                        currentAudio = new Audio(audioUrl);
+                        currentAudio.playbackRate = speeds[currentSpeedIdx];
+                        currentAudio.onended = () => onAudioEnd();
+                        currentAudio.onerror = () => { if(!fallbackTriggered) { fallbackTriggered = true; playWithLocalTts(text); } };
+                        currentAudio.play().catch(() => { if(!fallbackTriggered) { fallbackTriggered = true; playWithLocalTts(text); } });
+                    } else {
+                        if(!fallbackTriggered) { fallbackTriggered = true; playWithLocalTts(text); }
+                    }
+                }).catch(() => {
+                    clearTimeout(timeoutTimer);
+                    if(!fallbackTriggered) { fallbackTriggered = true; playWithLocalTts(text); }
+                });
+            }
+
+            // 【层级二】Edge TTS 微软日语女声 (NanamiNeural，温柔自然，NHK播音员风格)
+            function playWithEdgeTtsNanami(text) {
+                if (cancelled) return;
+                let fallbackTriggered = false;
+                
+                if (typeof ipcRenderer === 'undefined' || !ipcRenderer.invoke) {
+                    if(!fallbackTriggered) { fallbackTriggered = true; playWithBaiduTts(text); }
+                    return;
+                }
+                
+                let timeoutTimer = setTimeout(() => {
+                    if(!fallbackTriggered) { fallbackTriggered = true; playWithBaiduTts(text); }
+                }, 6000);
+                
+                ipcRenderer.invoke('edge-tts-synthesize', { text, voiceName: 'ja-JP-NanamiNeural', rate: '1.0' }).then(result => {
+                    if (fallbackTriggered || cancelled) return;
+                    clearTimeout(timeoutTimer);
+                    if (result.ok && result.audio) {
+                        const audioUrl = `data:audio/mpeg;base64,${result.audio}`;
+                        currentAudio = new Audio(audioUrl);
+                        currentAudio.playbackRate = speeds[currentSpeedIdx];
+                        currentAudio.onended = () => onAudioEnd();
+                        currentAudio.onerror = () => { if(!fallbackTriggered) { fallbackTriggered = true; playWithBaiduTts(text); } };
+                        currentAudio.play().catch(() => { if(!fallbackTriggered) { fallbackTriggered = true; playWithBaiduTts(text); } });
+                    } else {
+                        if(!fallbackTriggered) { fallbackTriggered = true; playWithBaiduTts(text); }
+                    }
+                }).catch(() => {
+                    clearTimeout(timeoutTimer);
+                    if(!fallbackTriggered) { fallbackTriggered = true; playWithBaiduTts(text); }
+                });
+            }
+
+            // 【层级一】谷歌 TTS (第一顺位，稳定可靠)
+            function playWithGoogleTts(text) {
+                if (cancelled) return;
+                let fallbackTriggered = false;
+                
+                const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;
+                
+                currentAudio = new Audio(url);
+                currentAudio.playbackRate = speeds[currentSpeedIdx];
+                
+                let localTimer = setTimeout(() => {
+                    if(fallbackTriggered) return;
+                    fallbackTriggered = true;
+                    playWithEdgeTtsNanami(text);
+                }, 3000);
+
+                currentAudio.onplaying = () => clearTimeout(localTimer);
+                currentAudio.onended = () => { clearTimeout(localTimer); onAudioEnd(); };
+                currentAudio.onerror = () => {
+                    clearTimeout(localTimer);
+                    if(!fallbackTriggered) { fallbackTriggered = true; playWithEdgeTtsNanami(text); }
+                };
+                
+                currentAudio.play().catch(() => {
+                    clearTimeout(localTimer);
+                    if(!fallbackTriggered) { fallbackTriggered = true; playWithEdgeTtsNanami(text); }
+                });
+            }
+
+            // 统一的音频结束处理
+            function onAudioEnd() {
+                if (cancelled) return;
+                pIndex += 1;
+                setProgress((pIndex / sentences.length) * 100);
+                setTimeout(() => speakNext(), 120);
+            }
+
+            function speakNext() {
+                if (cancelled || pIndex >= sentences.length) {
+                    playing = false;
+                    playBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left: 2px;"></i>';
+                    setProgress(pIndex >= sentences.length ? 100 : 0);
+                    clearHighlight();
+                    return;
+                }
+
+                clearHighlight();
+                if (pNodes[pIndex]) {
+                    const activeNode = pNodes[pIndex];
+                    activeNode.style.color = '#86efac';
+                    activeNode.style.background = 'rgba(74, 222, 128, 0.15)';
+                    activeNode.style.borderRadius = '6px';
+                    activeNode.style.padding = '2px 6px';
+                    activeNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+
+                const text = sentences[pIndex];
+                window.speechSynthesis.cancel();
+                playWithGoogleTts(text); // 优先谷歌TTS
+            }
+
+            return {
+                toggle() {
+                    if (playing) {
+                        stop();
+                        return;
+                    }
+                    if (window.radioAudio && !window.radioAudio.paused) {
+                        window.radioAudio.pause();
+                        const rbtn = document.getElementById('radioPlayBtn');
+                        if (rbtn) rbtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+                    }
+
+                    // 🌟 核心修复：不再暴力切割 HTML，直接提取现成的 <p> 标签
+                    // 这样绝不会破坏任何 ruby 注音结构
+                    const paragraphs = Array.from(bodyContainer.querySelectorAll('p')).filter(p => p.textContent.trim().length > 0);
+                    
+                    if (paragraphs.length === 0) return;
+
+                    pNodes = paragraphs;
+                    sentences = paragraphs.map(p => {
+                        // 克隆节点，移除注音 rt 以获取给 TTS 读的纯平文本
+                        const clone = p.cloneNode(true);
+                        clone.querySelectorAll('rt').forEach(rt => rt.remove());
+                        return clone.textContent.replace(/\s+/g, '').trim(); 
+                    });
+
+                    cancelled = false;
+                    playing = true;
+                    pIndex = 0;
+                    playBtn.innerHTML = '<i class="ph-fill ph-pause"></i>';
+                    window.speechSynthesis.cancel(); 
+                    setTimeout(() => speakNext(), 80);
+                },
+                cycleSpeed() {
+                    currentSpeedIdx = (currentSpeedIdx + 1) % speeds.length;
+                    const speed = speeds[currentSpeedIdx];
+                    speedBtn.textContent = speed.toFixed(1).replace(/\.0$/, '') + 'x';
+                    if (currentAudio) {
+                        currentAudio.playbackRate = speed; 
+                    }
+                },
+                getSpeedLabel() {
+                    return speeds[currentSpeedIdx].toFixed(1).replace(/\.0$/, '') + 'x';
+                },
+                stop
+            };
+        }
+
+        function nhkRenderArticle(article) {
+            nhkPanelTitle.textContent = '短文阅读';
+            nhkPanelSub.textContent = article.title || '短文详情';
+
+            const mediaId = `nhk-media-${Date.now()}`;
+            const audioId = `${mediaId}-audio`;
+            const playBtnId = `${mediaId}-play`;
+            const progressId = `${mediaId}-progress`;
+            const speedBtnId = `${mediaId}-speed`;
+            const hasOfficialAudio = !!(article.audioUrl && !article.loadFailed);
+            const audioLabel = hasOfficialAudio ? 'NHK 官方朗读' : '分句 TTS 朗读';
+            const charBadge = article.charCount ? `<span class="nhk-char-badge">${article.charCount} 字</span>` : '';
+
+            const mediaHtml = `
+                <div class="nhk-media-container" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+                    ${article.imageUrl ? `<img src="${nhkEscapeAttr(article.imageUrl)}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px;" alt="配图">` : ''}
+                    <audio id="${audioId}" src="${nhkEscapeAttr(article.audioUrl || '')}" preload="metadata" style="display: none;"></audio>
+                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px;">
+                        <div id="${playBtnId}" style="width: 30px; height: 30px; border-radius: 50%; background: #4ade80; color: #102018; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; flex-shrink: 0;" title="${nhkEscapeAttr(audioLabel)}">
+                            <i class="ph-fill ph-play" style="margin-left: 2px;"></i>
+                        </div>
+                        <input type="range" id="${progressId}" value="0" min="0" max="100" style="-webkit-appearance: none; flex: 1; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; outline: none; cursor: pointer;">
+                        <div id="${speedBtnId}" style="font-size: 11px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 12px; cursor: pointer; color: white; flex-shrink: 0; user-select: none;">1x</div>
+                        <div id="${mediaId}-furigana-btn" style="font-size: 11px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 12px; cursor: pointer; color: white; flex-shrink: 0; user-select: none;" title="显示/隐藏假名注音">注音 OFF</div>
+                    </div>
+                </div>
+            `;
+
+            nhkDetailScroll.innerHTML = `
+                <article class="nhk-detail-card">
+                    <h1 class="nhk-article-title">${nhkEscapeHtml(article.title || '阅读详情')}</h1>
+                    <div class="nhk-article-meta">
+                        <i class="ph ph-clock"></i>${nhkEscapeHtml(nhkFormatDate(article.time || ''))}
+                        ${charBadge}
+                        ${article.sourceLabel ? `<span> · ${nhkEscapeHtml(article.sourceLabel)}</span>` : ''}
+                    </div>
+                    ${mediaHtml}
+                    <div class="nhk-article-body hide-furigana" id="${mediaId}-body">${article.bodyHtml || '<p>正文为空。</p>'}</div>
+                </article>
+            `;
+
+            const audioEl = document.getElementById(audioId);
+            const playBtn = document.getElementById(playBtnId);
+            const progressEl = document.getElementById(progressId);
+            const speedBtn = document.getElementById(speedBtnId);
+            const furiganaBtn = document.getElementById(`${mediaId}-furigana-btn`);
+            const bodyContainer = document.getElementById(`${mediaId}-body`);
+            const audioLabelEl = document.querySelector('.nhk-audio-label');
+
+            // 注音开关逻辑 (默认隐藏，挂载 hide-furigana)
+            let isFuriganaVisible = false;
+            furiganaBtn.addEventListener('click', () => {
+                isFuriganaVisible = !isFuriganaVisible;
+                if (isFuriganaVisible) {
+                    bodyContainer.classList.remove('hide-furigana');
+                    furiganaBtn.textContent = '注音 ON';
+                    furiganaBtn.style.color = '#4ade80';
+                    furiganaBtn.style.background = 'rgba(74, 222, 128, 0.15)';
+                } else {
+                    bodyContainer.classList.add('hide-furigana');
+                    furiganaBtn.textContent = '注音 OFF';
+                    furiganaBtn.style.color = 'white';
+                    furiganaBtn.style.background = 'rgba(255,255,255,0.1)';
+                }
+            });
+
+           const audioSpeeds = [0.8, 1.0, 1.2];
+            // 【优化】：按照你的要求，加入 1.2 档位，默认依然是 1.0（索引为1）
+            const ttsSpeeds = [0.8, 1.0, 1.2, 1.5, 2.0]; 
+            let audioSpeedIdx = 1;
+            let audioFailed = false;
+
+            nhkStopMedia();
+            
+            nhkTtsController = nhkCreateTtsController(bodyContainer, playBtn, progressEl, speedBtn, ttsSpeeds);
+
+            // 核心无缝切换逻辑
+            function switchToTts() {
+                audioFailed = true;
+                speedBtn.textContent = nhkTtsController.getSpeedLabel();
+                playBtn.onclick = () => nhkTtsController.toggle();
+                speedBtn.onclick = () => nhkTtsController.cycleSpeed();
+                nhkTtsController.toggle(); // 自动开始朗读
+            }
+
+            if (hasOfficialAudio) {
+                speedBtn.textContent = audioSpeeds[audioSpeedIdx] + 'x';
+
+                audioEl.addEventListener('error', () => {
+                    audioFailed = true;
+                });
+
+                playBtn.onclick = () => {
+                    if (window.radioAudio && !window.radioAudio.paused) {
+                        window.radioAudio.pause();
+                        const rb = document.getElementById('radioPlayBtn');
+                        if (rb) rb.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+                    }
+                    if (nhkTtsController) nhkTtsController.stop();
+
+                    if (audioFailed) {
+                        switchToTts();
+                        return;
+                    }
+
+                    if (audioEl.paused) {
+                        const playPromise = audioEl.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                playBtn.innerHTML = '<i class="ph-fill ph-pause"></i>';
+                            }).catch(() => {
+                                switchToTts();
+                            });
+                        }
+                    } else {
+                        audioEl.pause();
+                        playBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left: 2px;"></i>';
+                    }
+                };
+
+                audioEl.addEventListener('timeupdate', () => {
+                    if (audioFailed) return;
+                    if (audioEl.duration) {
+                        const pct = (audioEl.currentTime / audioEl.duration) * 100;
+                        progressEl.value = pct;
+                        progressEl.style.background = `linear-gradient(to right, #4ade80 ${pct}%, rgba(255,255,255,0.2) ${pct}%)`;
+                    }
+                });
+
+                progressEl.addEventListener('input', () => {
+                    if (audioFailed) return;
+                    if (audioEl.duration) {
+                        const pct = parseFloat(progressEl.value);
+                        audioEl.currentTime = (pct / 100) * audioEl.duration;
+                        progressEl.style.background = `linear-gradient(to right, #4ade80 ${pct}%, rgba(255,255,255,0.2) ${pct}%)`;
+                    }
+                });
+
+                audioEl.addEventListener('ended', () => {
+                    playBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left: 2px;"></i>';
+                    progressEl.value = 0;
+                    progressEl.style.background = 'rgba(255,255,255,0.2)';
+                });
+
+                speedBtn.onclick = () => {
+                    if (audioFailed) {
+                        nhkTtsController.cycleSpeed();
+                        return;
+                    }
+                    audioSpeedIdx = (audioSpeedIdx + 1) % audioSpeeds.length;
+                    audioEl.playbackRate = audioSpeeds[audioSpeedIdx];
+                    speedBtn.textContent = audioSpeeds[audioSpeedIdx] + 'x';
+                };
+            } else {
+                speedBtn.textContent = nhkTtsController.getSpeedLabel();
+                playBtn.onclick = () => nhkTtsController.toggle();
+                speedBtn.onclick = () => nhkTtsController.cycleSpeed();
+            }
+        }
+
+        function nhkOpenModal() {
+            ['galleryModal', 'historyModal', 'noteArchiveModal', 'learningCenterModal'].forEach(id => {
+                const modal = document.getElementById(id);
+                if (modal) modal.classList.remove('show');
+            });
+            radioContainer.classList.remove('show');
+            radioToggleBtn.classList.remove('radio-active');
+            nhkNewsModal.classList.add('show');
+            flipContainer.classList.add('hide-flipper');
+            nhkShowList();
+            nhkLoadNews(false);
+        }
+
+        function nhkCloseModal() {
+            nhkNewsModal.classList.remove('show');
+            flipContainer.classList.remove('hide-flipper');
+            nhkShowList();
+        }
+
+        nhkNewsBtns.forEach(btn => btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            nhkOpenModal();
+        }));
+
+        closeNhkNewsBtn.addEventListener('click', () => {
+            if (!nhkDetailView.hidden) {
+                nhkShowList();
+            } else {
+                nhkCloseModal();
+            }
+        });
+
+        nhkBackBtn.addEventListener('click', nhkShowList);
+        nhkRefreshBtn.addEventListener('click', () => {
+            nhkShowList();
+            nhkLoadNews(true);
+        });
+        setInterval(() => {
+            if (nhkNewsModal.classList.contains('show')) nhkLoadNews(true);
+        }, NHK_AUTO_REFRESH_INTERVAL);
+        // ==================== NHK Easy 日语短文阅读结束 ====================
 
         let tasks = JSON.parse(localStorage.getItem('canvas_todo_tasks_notime')) || [];
         
