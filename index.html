@@ -2396,6 +2396,8 @@
     <input type="file" id="customImageInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
 
     <script>
+        const path = require('path');
+        const url = require('url');
         document.body.addEventListener('mouseenter', () => { if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('window-enter'); });
         document.body.addEventListener('mouseleave', () => { if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('window-leave'); });
 
@@ -2468,18 +2470,22 @@
         }
         document.querySelectorAll('.glare-effect').forEach(bindGlareEffect);
 
+        const defaultWallpaperUrl = url.pathToFileURL(path.join(__dirname, '壁纸', '默认壁纸.jpg')).href;
+
         const themePresets = [
             { name: "经典黑透", bg: "rgba(15, 25, 20, 0.25)", border: "rgba(255, 255, 255, 0.1)", filter: "blur(12px)" },
             { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" },
-            { name: "默认壁纸", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('./壁纸/默认壁纸.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" }
+            { name: "默认壁纸", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('" + defaultWallpaperUrl + "')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" }
         ];
         
         let customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
-        let currentThemeIndex = parseInt(localStorage.getItem('canvas_todo_theme')) || 0;
+        let currentThemeIndex = parseInt(localStorage.getItem('canvas_todo_theme'));
+        if (isNaN(currentThemeIndex)) currentThemeIndex = 2; // 无缓存时默认使用内置壁纸
         let isMinimalistLayout = localStorage.getItem('canvas_todo_minimalist_layout') === 'true';
 
         function applyTheme() {
-            currentThemeIndex = parseInt(localStorage.getItem('canvas_todo_theme')) || 0;
+            currentThemeIndex = parseInt(localStorage.getItem('canvas_todo_theme'));
+            if (isNaN(currentThemeIndex)) currentThemeIndex = 2; // 无缓存时默认使用内置壁纸
             customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
             isMinimalistLayout = localStorage.getItem('canvas_todo_minimalist_layout') === 'true';
 
