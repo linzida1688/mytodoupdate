@@ -6,7 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web"></script>
     <!-- 引入 SheetJS 库，用于直接在本地解析 Excel/CSV 格式的表格文件 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script>const { ipcRenderer } = require('electron');</script>
+    <script>const { ipcRenderer, shell } = require('electron');</script>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100vw; height: 100vh;
@@ -40,7 +40,7 @@
             background: rgba(15, 25, 20, 0.25); 
             backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 16px; 
-            box-sizing: border-box; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            box-sizing: border-box; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             display: flex; flex-direction: column; 
             transition: opacity 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
             will-change: transform, opacity;
@@ -60,6 +60,7 @@
         }
         body.pomodoro-active .focus-overlay { opacity: 1; }
         .header, .input-container, .list-container, .radio-container, .word-footer, .note-wrapper { position: relative; z-index: 10; }
+        .header { z-index: 100; }
 
         .glare-effect { position: relative; overflow: hidden; border-radius: inherit; }
         .glare-effect::before {
@@ -74,10 +75,37 @@
         .header-left { display: flex; align-items: flex-start; flex: 1; min-width: 0; position: relative; z-index: 20; }
         
         .header-right { 
-            display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 2px; 
+            display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 2px; margin-left: 8px;
             opacity: 0; visibility: hidden; transition: all 0.3s ease-in-out; position: relative; z-index: 20;
+            -webkit-mask-image: none; mask-image: none;
         }
         .header:hover .header-right { opacity: 1; visibility: visible; }
+
+        /* 渐变遮罩：右侧隐入边缘 */
+        .header-right.mask-right {
+            -webkit-mask-image: linear-gradient(to right, black 0%, black calc(100% - 30px), transparent 100%);
+            mask-image: linear-gradient(to right, black 0%, black calc(100% - 30px), transparent 100%);
+        }
+        /* 渐变遮罩：左侧隐入边缘 */
+        .header-right.mask-left {
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30px, black 100%);
+            mask-image: linear-gradient(to right, transparent 0%, black 30px, black 100%);
+        }
+        /* 渐变遮罩：双侧隐入边缘 */
+        .header-right.mask-both {
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30px, black calc(100% - 30px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0%, black 30px, black calc(100% - 30px), transparent 100%);
+        }
+
+        .header-btn-scroll {
+            display: flex; align-items: center; gap: 6px;
+            max-width: 138px;
+            overflow-x: auto; overflow-y: hidden;
+            scrollbar-width: none;
+            scroll-behavior: smooth;
+        }
+        .header-btn-scroll::-webkit-scrollbar { display: none; height: 0; width: 0; }
+        .header-btn-scroll > .icon-btn { flex-shrink: 0; }
 
         .title-group { display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; width: 100%; gap: 6px; }
         .title-wrapper { display: flex; align-items: center; gap: 8px; width: 100%; }
@@ -201,7 +229,7 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             max-height: 0; opacity: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; margin-bottom: 0; transform: translateY(-5px);
         }
-        .radio-container.show { max-height: 145px; opacity: 1; padding: 10px 12px; margin-bottom: 12px; transform: translateY(0); }
+        .radio-container.show { max-height: 145px; opacity: 1; padding: 10px 12px; margin-bottom: 12px; transform: translateY(0); overflow: visible; }
         
         .radio-header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         
@@ -213,6 +241,49 @@
 
         .radio-close { cursor: pointer; color: rgba(255,255,255,0.4); font-size: 14px; transition: all 0.2s; padding: 2px;}
         .radio-close:hover { color: #ff5252; transform: scale(1.1); }
+        
+        /* 定时关闭功能 */
+        .radio-timer-wrap { position: relative; display: flex; align-items: center; gap: 4px; }
+        .radio-timer-btn { cursor: pointer; color: rgba(255,255,255,0.4); font-size: 14px; transition: all 0.2s; padding: 2px; display: flex; align-items: center; }
+        .radio-timer-btn:hover { color: #4ade80; transform: scale(1.1); }
+        .radio-timer-btn.active { color: #4ade80; }
+        
+        .radio-timer-dropdown {
+            position: absolute; bottom: calc(100% + 6px); right: 0; top: auto;
+            background: #1a2f22; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px; padding: 5px; z-index: 200;
+            display: none; flex-direction: column; gap: 2px;
+            min-width: 125px; box-shadow: 0 -2px 16px rgba(0,0,0,0.7);
+        }
+        .radio-timer-dropdown.show { display: flex; }
+        .radio-timer-item {
+            padding: 5px 10px; border-radius: 6px; cursor: pointer; 
+            color: rgba(255,255,255,0.85); font-size: 12px; 
+            transition: all 0.15s; text-align: left; white-space: nowrap;
+            user-select: none; display: flex; justify-content: space-between; align-items: center;
+        }
+        .radio-timer-item:hover { background: rgba(74,222,128,0.15); color: #4ade80; }
+        .radio-timer-item.active-item { background: rgba(74,222,128,0.12); color: #4ade80; }
+        .radio-timer-remain { font-size: 10px; color: #4ade80; opacity: 0.9; }
+        .radio-timer-cancel { color: rgba(255,255,255,0.45); border-top: 1px solid rgba(255,255,255,0.08); margin-top: 2px; padding-top: 7px; justify-content: center; }
+        .radio-timer-cancel:hover { color: #ff5252; background: rgba(255,82,82,0.12); }
+        
+        .radio-timer-custom-row {
+            display: flex; align-items: center; gap: 4px; padding: 2px 6px;
+        }
+        .radio-timer-custom-input {
+            flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px; color: #fff; font-size: 11px; padding: 4px 6px;
+            outline: none; text-align: center; min-width: 0;
+        }
+        .radio-timer-custom-input:focus { border-color: #4ade80; }
+        .radio-timer-unit { color: rgba(255,255,255,0.5); font-size: 11px; flex-shrink: 0; }
+        .radio-timer-ok {
+            background: #4ade80; color: #1a1a1a; border: none; 
+            border-radius: 4px; padding: 3px 8px; cursor: pointer; 
+            font-size: 11px; font-weight: bold; flex-shrink: 0;
+        }
+        .radio-timer-ok:hover { background: #22c55e; }
         
         .radio-ep-box { display: flex; align-items: center; margin-bottom: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.05); }
         .radio-ep-select {
@@ -260,6 +331,109 @@
         .radio-speed-btn:hover { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.3); color: #fff; transform: translateY(-1px); }
         .radio-speed-btn:active { transform: scale(0.95); }
         /* ==================== 播客电台挂件样式结束 ==================== */
+
+        /* ==================== 书签导航样式开始 ==================== */
+        .bookmark-wrap {
+            position: relative;
+            flex-shrink: 0;
+            z-index: 50;
+            opacity: 0; visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+        .header:hover .bookmark-wrap { opacity: 1; visibility: visible; }
+.bookmark-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: -8px;
+            background: rgba(15, 25, 20, 0.72);
+            backdrop-filter: blur(30px) saturate(140%);
+            -webkit-backdrop-filter: blur(30px) saturate(140%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 3px;
+            min-width: 200px;
+            max-width: 300px;
+            max-height: 340px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+            z-index: 200;
+        }
+        .bookmark-dropdown::-webkit-scrollbar { width: 3px; }
+        .bookmark-dropdown::-webkit-scrollbar-track { background: transparent; }
+        .bookmark-dropdown::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 10px; }
+        .bookmark-dropdown.show { display: flex; }
+        .bookmark-dropdown-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px; cursor: pointer;
+            transition: all 0.18s ease; color: rgba(255, 255, 255, 0.92);
+            font-size: 13px; white-space: nowrap; text-decoration: none;
+        }
+        .bookmark-dropdown-item:hover { background: rgba(255, 255, 255, 0.08); color: #4ade80; }
+        .bookmark-dropdown-item:active { transform: scale(0.97); }
+        .bookmark-dropdown-item img { width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0; }
+        .bookmark-dropdown-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bookmark-dropdown-empty { padding: 12px 14px; color: rgba(255, 255, 255, 0.35); font-size: 12px; text-align: center; }
+        .bookmark-modal-input {
+            width: 100%; background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px;
+            padding: 10px 14px; font-size: 13px; color: #ffffff;
+            outline: none; box-sizing: border-box; margin-bottom: 14px;
+            transition: border-color 0.2s; font-family: inherit;
+        }
+        .bookmark-modal-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+        .bookmark-modal-input:focus { border-color: rgba(74, 222, 128, 0.5); }
+        .bookmark-modal-grid {
+            display: flex; flex-direction: column; gap: 6px;
+            overflow-y: auto; flex: 1; padding-right: 4px;
+        }
+        .bookmark-modal-grid::-webkit-scrollbar { width: 4px; }
+        .bookmark-modal-grid::-webkit-scrollbar-track { background: transparent; }
+        .bookmark-modal-grid::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        .bookmark-modal-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px; transition: background 0.15s;
+        }
+        .bookmark-modal-item:hover { background: rgba(255, 255, 255, 0.1); }
+        .bookmark-modal-item img { width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0; }
+        .bookmark-modal-item .bm-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .bookmark-modal-item .bm-title { font-size: 13px; color: rgba(255, 255, 255, 0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+        .bookmark-modal-item .bm-title:hover { color: #4ade80; }
+        .bookmark-modal-item .bm-title-input {
+            font-size: 13px; color: #ffffff; background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(74, 222, 128, 0.4); border-radius: 6px;
+            padding: 2px 6px; outline: none; width: 100%; box-sizing: border-box;
+            font-family: inherit;
+        }
+        .bookmark-modal-item .bm-url { font-size: 10px; color: rgba(255, 255, 255, 0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bookmark-modal-delete {
+            color: rgba(255, 255, 255, 0.35); cursor: pointer; padding: 4px;
+            border-radius: 6px; transition: all 0.2s; flex-shrink: 0; font-size: 14px;
+        }
+        .bookmark-modal-delete:hover { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
+        .bookmark-modal-check {
+            display: none; width: 18px; height: 18px; flex-shrink: 0;
+            border: 2px solid rgba(255,255,255,0.4); border-radius: 4px; cursor: pointer;
+            transition: all 0.2s; margin-right: 2px;
+        }
+        .bookmark-modal-check.checked { background: #4ade80; border-color: #4ade80; }
+        .bookmark-modal-check.checked::after { content: ''; display: block; width: 5px; height: 9px; border: solid #1a2f22; border-width: 0 2px 2px 0; transform: rotate(45deg); margin: 2px 0 0 4px; }
+        .bookmark-modal-item.drag-ghost { opacity: 0.3; transform: scale(0.98); }
+        .bookmark-batch-bar {
+            display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px;
+            background: rgba(74, 222, 128, 0.08); border: 1px solid rgba(74, 222, 128, 0.2);
+            border-radius: 10px; font-size: 12px;
+        }
+        .bookmark-batch-count { color: rgba(255,255,255,0.7); flex: 1; }
+        .bookmark-batch-del { background: #ff5252; color: #fff; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; display: flex; align-items: center; gap: 4px; }
+        .bookmark-batch-del:hover { background: #ff1744; }
+        .bookmark-batch-cancel { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 12px; font-family: inherit; }
+        .bookmark-batch-cancel:hover { background: rgba(255,255,255,0.2); }
+        /* ==================== 书签导航样式结束 ==================== */
 
         .note-wrapper { flex: 1; display: flex; position: relative; min-height: 0; width: 100%; margin-bottom: 12px; }
         .note-area { flex: 1; width: 100%; background: transparent; border: none; outline: none; color: rgba(255, 255, 255, 0.9); font-family: inherit; font-size: 14.5px; line-height: 1.6; resize: none; padding-right: 6px; margin-right: -6px; margin-bottom: 0; transition: opacity 0.2s ease; }
@@ -1531,6 +1705,282 @@
             font-weight: bold;
         }
         /* ==================== 核心背英语单词高颜值组件样式结束 ==================== */
+       /* ==================== 本地 AI 助手样式 ==================== */
+        .chat-container { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 10px; }
+        .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 4px; }
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        .message { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; word-break: break-word; }
+        .ai-message { align-self: flex-start; background: rgba(255,255,255,0.1); color: #fff; border-top-left-radius: 2px; border: 1px solid rgba(255,255,255,0.05); }
+        .user-message { align-self: flex-end; background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); border-top-right-radius: 2px; }
+        .chat-input-area { display: flex; gap: 8px; align-items: flex-end; background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+        .chat-input { flex: 1; background: transparent; border: none; color: white; outline: none; resize: none; font-family: inherit; font-size: 13.5px; max-height: 80px; padding: 6px 0; line-height: 1.4; }
+        .chat-input::placeholder { color: rgba(255,255,255,0.3); }
+        .chat-send-btn { background: #4ade80; color: #102018; border: none; width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
+        .chat-send-btn:hover { transform: scale(1.05); box-shadow: 0 0 10px rgba(74, 222, 128, 0.3); }
+        .chat-send-btn:active { transform: scale(0.95); }
+        .chat-loading { font-size: 12px; color: rgba(255,255,255,0.4); display: flex; align-items: center; gap: 4px; }
+        .ai-apikey-input { width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 10px; color: white; font-size: 13px; outline: none; transition: border-color 0.2s, background 0.2s; }
+        .ai-apikey-input:focus { border-color: rgba(74, 222, 128, 0.5); background: rgba(255,255,255,0.12); }
+        .ai-apikey-input::placeholder { color: rgba(255,255,255,0.35); }
+        /* ==================== 本地 AI 助手样式结束 ==================== */
+    /* 发送图片及流式输出相关样式优化 (支持多图) */
+       .chat-img-preview-container { display: none; background: rgba(255,255,255,0.1); padding: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); align-items: center; gap: 8px; width: fit-content; margin-bottom: 8px; max-width: 100%; flex-wrap: wrap; max-height: 120px; overflow-y: auto; overflow-x: hidden; }
+        /* 👇 就是这一行，彻底斩断恶心的原生白框滚动条 */
+        .chat-img-preview-container::-webkit-scrollbar { display: none; }
+        
+        .chat-img-preview-wrapper { position: relative; display: inline-block; }
+        .chat-img-preview { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(255,255,255,0.3); }
+        .chat-img-remove { position: absolute; top: -6px; right: -6px; background: rgba(255,255,255,0.2); color: #fff; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(4px); }
+        .chat-img-remove:hover { background: #ff5252; transform: scale(1.15); }
+        .chat-attach-btn { background: transparent; color: rgba(255,255,255,0.6); border: none; font-size: 20px; cursor: pointer; padding: 4px 6px; transition: color 0.2s; display: flex; align-items: center; }
+        .chat-attach-btn:hover { color: #4ade80; }
+        .chat-clear-btn:hover { color: #ff9800; } /* 扫把按钮专属悬浮色 */
+
+        /* ==================== 极简高颜打卡系统样式 (V2) ==================== */
+        .habit-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding-right: 4px;
+            margin-right: -4px;
+        }
+        .habit-scroll::-webkit-scrollbar { width: 4px; }
+        .habit-scroll::-webkit-scrollbar-track { background: transparent; }
+        .habit-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+
+        .habit-block {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: background 0.2s, border-color 0.2s;
+            flex-shrink: 0;
+        }
+        .habit-block:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .habit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+        }
+        .habit-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.95);
+            letter-spacing: 0.5px;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: inherit;
+            flex-shrink: 1;
+            min-width: 0;
+            padding: 2px 4px;
+            border-radius: 6px;
+            transition: background 0.2s;
+            cursor: text;
+        }
+        .habit-title:hover { background: rgba(255,255,255,0.08); }
+        .habit-title:focus { background: rgba(255,255,255,0.12); }
+
+        .habit-month-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .habit-month-nav-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: rgba(255,255,255,0.5);
+            font-size: 13px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .habit-month-nav-btn:hover {
+            color: #4ade80;
+            background: rgba(74,222,128,0.12);
+        }
+        .habit-month-nav-btn:active { transform: scale(0.9); }
+        .habit-month-label {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.75);
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .habit-delete {
+            opacity: 0;
+            color: rgba(255,255,255,0.3);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .habit-block:hover .habit-delete { opacity: 1; }
+        .habit-delete:hover {
+            color: #ff5252;
+            background: rgba(255,82,82,0.1);
+        }
+        .habit-delete:active { transform: scale(0.85); }
+
+        .habit-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-bottom: 2px;
+        }
+        .habit-weekday {
+            text-align: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.3);
+            padding: 2px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .habit-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+        .habit-cell {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.04);
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, box-shadow 0.2s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            justify-self: center;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        .habit-cell:hover {
+            transform: scale(1.1);
+            background: rgba(255,255,255,0.1);
+        }
+        .habit-cell.future {
+            pointer-events: none;
+        }
+        .habit-cell.today:not(.checked) {
+            border: 1.5px solid #4ade80;
+            box-shadow: 0 0 6px rgba(74,222,128,0.25);
+        }
+        .habit-cell.checked {
+            background: rgba(74,222,128,0.12);
+            box-shadow: 0 0 6px rgba(74,222,128,0.15);
+        }
+        .habit-cell.checked.today {
+            border: 1.5px solid #4ade80;
+            box-shadow: 0 0 8px rgba(74,222,128,0.25);
+        }
+        .habit-cell.pop-anim {
+            animation: habitPopV3 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes habitPopV3 {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .cell-date {
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.5);
+            opacity: 1;
+            transition: opacity 0.18s ease;
+            pointer-events: none;
+            line-height: 1;
+        }
+        .habit-cell.checked .cell-date {
+            opacity: 0;
+        }
+        .habit-cell.today:not(.checked) .cell-date {
+            color: rgba(255,255,255,0.9);
+            font-weight: 700;
+        }
+
+        .cell-check {
+            position: absolute;
+            font-size: 18px;
+            color: #4ade80;
+            opacity: 0;
+            transform: scale(0.4);
+            transition: opacity 0.22s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .habit-cell.checked .cell-check {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .habit-add-row {
+            flex-shrink: 0;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: 4px;
+        }
+        .habit-add-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.06);
+            border: 1px dashed rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.7);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            letter-spacing: 0.5px;
+        }
+        .habit-add-btn:hover {
+            background: rgba(74,222,128,0.1);
+            border-color: rgba(74,222,128,0.4);
+            color: #4ade80;
+        }
+        .habit-add-btn:active { transform: scale(0.96); }
+        /* ==================== 打卡系统样式结束 ==================== */
+        .message img { max-width: 200px !important; max-height: 200px !important; border-radius: 8px; margin-bottom: 6px; object-fit: contain; }
+        .chat-input-area.drag-over { background: rgba(74, 222, 128, 0.15); border-color: #4ade80; }
+        .chat-img-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+        /* 强制约束所有图片的极限大小，绝对不再贴脸开大！ */
+        .message img { max-width: 200px !important; max-height: 200px !important; border-radius: 8px; margin-bottom: 6px; object-fit: contain; }
     </style>
 </head>
 <body>
@@ -1558,15 +2008,23 @@
                         </div>
                     </div>
                     
-                    <div class="header-right">
-                        <!-- 学习中心按钮已从这里移至下方单词底栏第二排 -->
-                        <div class="icon-btn" id="radioToggleBtn" title="日语听力电台 (播客)"><i class="ph ph-radio"></i></div>
-                        
-                        <div class="icon-btn custom-bg-btn" title="个性化外观 (皮肤与壁纸)"><i class="ph ph-palette"></i></div>
-                        <div class="icon-btn" id="pomodoroBtn" title="开启 25 分钟番茄专注"><i class="ph ph-timer"></i></div>
-                        <div class="icon-btn" id="flipToNoteBtn" title="切换草稿纸"><i class="ph ph-note-pencil"></i></div>
-                        <div class="icon-btn" id="addTaskBtn" title="添加新任务"><i class="ph ph-plus"></i></div>
-                        <div class="icon-btn pinBtn" title="点击固定在桌面上层"><i class="ph ph-push-pin"></i></div>
+                    <div class="header-right mask-right">
+                        <div class="header-btn-scroll">
+                            <!-- 学习中心按钮已从这里移至下方单词底栏第二排 -->
+                            <div class="icon-btn" id="radioToggleBtn" title="日语听力电台 (播客)"><i class="ph ph-radio"></i></div>
+                            <div class="icon-btn custom-bg-btn" title="个性化外观 (皮肤与壁纸)"><i class="ph ph-palette"></i></div>
+                            <div class="icon-btn" id="aiChatBtn" title="本地 AI 助手 (Ollama)"><i class="ph ph-robot"></i></div>
+                            <div class="icon-btn" id="pomodoroBtn" title="开启 25 分钟番茄专注"><i class="ph ph-timer"></i></div>
+                            <div class="icon-btn" id="flipToNoteBtn" title="切换草稿纸"><i class="ph ph-note-pencil"></i></div>
+                            <!-- 扩展按钮位：默认隐藏，后续可添加更多功能 -->
+                            <div class="icon-btn" id="habitTrackerBtn" title="习惯打卡"><i class="ph ph-calendar-check"></i></div>
+                            <div class="icon-btn" id="addTaskBtn" title="添加新任务"><i class="ph ph-plus"></i></div>
+                            <div class="icon-btn pinBtn" title="点击固定在桌面上层"><i class="ph ph-push-pin"></i></div>
+                        </div>
+                    </div>
+                    <div class="bookmark-wrap">
+                        <div class="icon-btn" id="bookmarkBtn" title="书签导航"><i class="ph ph-star"></i></div>
+                        <div class="bookmark-dropdown" id="bookmarkDropdown"></div>
                     </div>
                 </div>
                 
@@ -1586,7 +2044,21 @@
                             <!-- 频道选择器 -->
                             <select id="radioChannelSelect" class="radio-channel-select" title="点击切换电台频道"></select>
                         </div>
-                        <i class="ph ph-x radio-close" id="radioCloseBtn" title="真正关闭电台并停止播放"></i>
+                        <div class="radio-timer-wrap">
+                            <i class="ph ph-timer radio-timer-btn" id="radioTimerBtn" title="定时关闭播放"></i>
+                            <div class="radio-timer-dropdown" id="radioTimerDropdown">
+                                <div class="radio-timer-item" data-min="30">30 分钟</div>
+                                <div class="radio-timer-item" data-min="60">60 分钟</div>
+                                <div class="radio-timer-item" data-min="90">90 分钟</div>
+                                <div class="radio-timer-custom-row">
+                                    <input type="number" class="radio-timer-custom-input" id="radioTimerCustomInput" placeholder="分钟" min="1" max="600">
+                                    <span class="radio-timer-unit">分钟</span>
+                                    <button class="radio-timer-ok" id="radioTimerCustomOk">确定</button>
+                                </div>
+                                <div class="radio-timer-item radio-timer-cancel" id="radioTimerCancelBtn" style="display:none;">取消定时</div>
+                            </div>
+                            <i class="ph ph-x radio-close" id="radioCloseBtn" title="真正关闭电台并停止播放"></i>
+                        </div>
                     </div>
                     
                     <!-- 往期节目选集列表 -->
@@ -1840,7 +2312,85 @@
             </div>
         </div>
     </div>
+    <div class="nhk-detail-scroll" id="nhkDetailScroll"></div>
+            </div>
+        </div>
 
+        <div class="gallery-modal" id="habitModal">
+            <div class="gallery-header" style="margin-bottom: 12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph-fill ph-calendar-check" style="color:#4ade80; font-size:20px;"></i>
+                    <span id="habitMonthLabel" style="font-size:14px; letter-spacing:0.5px;">习惯打卡</span>
+                </div>
+                <i class="ph ph-x close-btn" id="closeHabitBtn" title="关闭"></i>
+            </div>
+            <div class="habit-scroll" id="habitScroll"></div>
+            <div class="habit-add-row">
+                <button class="habit-add-btn" id="habitAddBtn"><i class="ph-bold ph-plus"></i> 添加打卡项目</button>
+            </div>
+        </div>
+
+        <div class="gallery-modal" id="bookmarkModal">
+            <div class="gallery-header" style="margin-bottom: 12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph-fill ph-star" style="color:#4ade80; font-size:20px;"></i>
+                    <span style="font-size:14px; letter-spacing:0.5px;">书签导航</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph ph-pencil-simple-line close-btn" id="bookmarkEditBtn" title="编辑模式" style="font-size:16px;"></i>
+                    <i class="ph ph-x close-btn" id="closeBookmarkBtn" title="关闭"></i>
+                </div>
+            </div>
+            <div class="bookmark-batch-bar" id="bookmarkBatchBar" style="display:none;">
+                <span class="bookmark-batch-count" id="bookmarkBatchCount">已选 0 项</span>
+                <button class="bookmark-batch-del" id="bookmarkBatchDel"><i class="ph ph-trash"></i> 删除选中</button>
+                <button class="bookmark-batch-cancel" id="bookmarkBatchCancel">取消</button>
+            </div>
+            <input type="text" class="bookmark-modal-input" id="bookmarkInput" placeholder="粘贴网址后按 Enter 添加书签..." autocomplete="off">
+            <div class="bookmark-modal-grid" id="bookmarkGrid"></div>
+        </div>
+
+        <div class="gallery-modal" id="aiModal">
+            <div class="gallery-header" style="margin-bottom: 12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph-fill ph-robot" style="color:#4ade80; font-size:20px;"></i>
+                    <span style="font-size:14px; letter-spacing:0.5px;">云端 AI (GLM-5 旗舰)</span>
+                    <div class="icon-btn" id="aiApiKeyBtn" title="设置 API Key"><i class="ph ph-key"></i></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div class="icon-btn pinBtn" id="aiPinBtn" title="点击固定界面不自动收回"><i class="ph ph-push-pin"></i></div>
+                    <i class="ph ph-x close-btn" id="closeAiBtn" title="关闭"></i>
+                </div>
+            </div>
+            <div id="aiApiKeyPanel" style="display:none; margin-bottom:12px; padding:10px 12px; background:rgba(0,0,0,0.2); border-radius:12px; border:1px solid rgba(255,255,255,0.1);">
+                <div style="font-size:12px; color:rgba(255,255,255,0.65); margin-bottom:6px;">
+                    <i class="ph ph-warning-circle" style="color:#fbbf24;"></i> 请输入云端 AI 的 API Key 以启用对话
+                </div>
+                <input type="password" id="aiApiKeyInput" class="ai-apikey-input" placeholder="例如：27084bd100fc4b0d833933ca2ec6e427.xxx">
+            </div>
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai-message" id="aiWelcomeMessage">数据绝对安全不出电脑，有什么我可以帮你的？（你可以直接拖拽图片到下方输入框）</div>
+                </div>
+                <div class="chat-img-preview-container" id="chatImgPreviewContainer">
+                    <img id="chatImgPreview" class="chat-img-preview" src="">
+                    <span class="chat-img-name" id="chatImgName">已选图片</span>
+                    <div class="chat-img-remove" id="chatImgRemove" title="移除"><i class="ph-bold ph-x"></i></div>
+                </div>
+                <div class="chat-img-preview-container" id="chatImgPreviewContainer">
+                    </div>
+                <div class="chat-input-area" id="chatInputArea">
+                    <button class="chat-attach-btn chat-clear-btn" id="chatClearBtn" title="清空上下文记忆 (开启新对话)"><i class="ph ph-broom"></i></button>
+                    <button class="chat-attach-btn" id="chatAttachBtn" title="上传多张图片 (支持拖拽)"><i class="ph ph-image"></i></button>
+                    <input type="file" id="chatImageInput" accept="image/png, image/jpeg, image/webp" multiple style="display: none;">
+                    
+                    <textarea class="chat-input" id="chatInput" placeholder="发图或问问题..." rows="1"></textarea>
+                    <button class="chat-send-btn" id="chatSendBtn" title="发送"><i class="ph-bold ph-paper-plane-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+    <input type="file" id="wordFileInput" accept=".txt,.xlsx,.xls,.csv" style="display: none;">
     <!-- 扩展 input 的接收类型，允许上传表格格式 -->
     <input type="file" id="wordFileInput" accept=".txt,.xlsx,.xls,.csv" style="display: none;">
     <input type="file" id="customImageInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
@@ -1856,7 +2406,7 @@
         document.addEventListener('pointerdown', (e) => {
             if (e.button !== 0) return; 
 
-            if (e.target.closest('.icon-btn, .mini-icon-btn, input, textarea, .list-container, .mini-list-container, .gallery-grid, .close-btn, .progress-wrapper, .draft-add-btn, .word-text-box, .pill-style, .radio-container, .learning-center-modal, .nhk-news-modal, .vocab-card, .vocab-btn, .vocab-search-input, .vocab-list-scroll')) {
+            if (e.target.closest('.icon-btn, .mini-icon-btn, input, textarea, .list-container, .mini-list-container, .gallery-grid, .close-btn, .progress-wrapper, .draft-add-btn, .word-text-box, .pill-style, .radio-container, .vocab-card, .vocab-btn, .vocab-search-input, .vocab-list-scroll, .learning-tab-btn, .vocab-toggle-btn, .nhk-icon-action, .nhk-back-btn, .nhk-news-item, .chat-input-area, .chat-input, .chat-send-btn, .chat-attach-btn, .note-area, .habit-scroll, .habit-grid, .habit-cell, .habit-title, .habit-delete, .habit-add-btn, .nhk-article-body, .nhk-detail-scroll, .bookmark-wrap, .bookmark-dropdown, .bookmark-dropdown-item, .bookmark-modal-delete, .bookmark-modal-input, .bookmark-modal-grid, .bookmark-modal-check, .bookmark-batch-bar')) {
                 return;
             }
             
@@ -1921,9 +2471,7 @@
         const themePresets = [
             { name: "经典黑透", bg: "rgba(15, 25, 20, 0.25)", border: "rgba(255, 255, 255, 0.1)", filter: "blur(12px)" },
             { name: "极致磨砂", bg: "rgba(40, 40, 40, 0.45)", border: "rgba(255, 255, 255, 0.2)", filter: "blur(40px) saturate(150%)" },
-            { name: "深海猎人", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/a117deab789a8be09d0c6fcb058d4e0466857ad2.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" },
-            { name: "星河幻想", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/7847d3719fb08de3e86de89990f7ed5eab8ef1ee.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" },
-            { name: "幻星之愿", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('https://i0.hdslb.com/bfs/article/3538b2f3b8899b8f95161f4f0a6807433493083985480649.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" }
+            { name: "默认壁纸", bg: "linear-gradient(rgba(10, 15, 20, 0.45), rgba(10, 15, 20, 0.45)), url('./壁纸/默认壁纸.jpg')", border: "rgba(255, 255, 255, 0.15)", filter: "blur(6px)", size: "cover" }
         ];
         
         let customThemes = JSON.parse(localStorage.getItem('canvas_todo_custom_themes')) || [];
@@ -1954,8 +2502,9 @@
             const backEl = document.getElementById('noteWidget');
             const learningEl = document.getElementById('learningCenterModal');
             const nhkEl = document.getElementById('nhkNewsModal');
+            const habitEl = document.getElementById('habitModal');
 
-            [frontEl, backEl, learningEl, nhkEl].forEach(el => {
+            [frontEl, backEl, learningEl, nhkEl, habitEl].forEach(el => {
                 if (el) {
                     el.style.background = theme.bg; el.style.backgroundSize = theme.size || "auto"; el.style.backgroundPosition = "center";
                     el.style.borderColor = theme.border; el.style.backdropFilter = theme.filter; el.style.webkitBackdropFilter = theme.filter;
@@ -2432,7 +2981,8 @@
             { name: "N3~N1日本語 Haru no Nihongo", url: "https://anchor.fm/s/26aec4fc/podcast/rss" },
             { name: "NHK 官方广播新闻 (N2+ 每日更新)", url: "https://www.nhk.or.jp/s-media/news/podcast/list/v1/all.xml" },
             { name: "NHK 日语会话 (N4-N3 官方)", url: "https://www.nhk.or.jp/lesson/ja/rss/podcast.xml" },
-            { name: "NHK 慢速新闻 (N3-N2 带假名)", url: "https://nhkeasier.com/feed/" },
+            { name: "NHK 慢速新闻", url: 
+"https://nhkeasier.com/feed/" },
             { name: "日本語でしゃべりま Show", url: "https://anchor.fm/s/9fbf9b64/podcast/rss" },
             { name: "歴史を面白く学ぶコテンラジオ", url: "https://anchor.fm/s/8c2088c/podcast/rss" },
             { name: "雷獣の声刀 ABC广播", url: "https://feeds.megaphone.fm/ARB4213669399" },
@@ -2442,6 +2992,8 @@
             { name: "与你日经", url: "https://feeds.megaphone.fm/nagara" },
             { name: "ゆとりっ娘たちのたわごと", url: "https://anchor.fm/s/6e491dbc/podcast/rss" },
             { name: "あかね的日本語教室", url: "https://anchor.fm/s/1fe5323c/podcast/rss" },
+            { name: "简明日语", url: "https://www.nhk.or.jp/nhkworld/lesson/zh/rss/podcast.xml" },
+
 
             { name: "        中文电台        ", url: "" },
             { name: "日谈公园", url: "http://www.ximalaya.com/album/5574153.xml" },
@@ -2502,6 +3054,126 @@
             radioToggleBtn.classList.remove('radio-active');
             radioAudio.pause();
             radioPlayBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+            clearRadioTimer();
+            radioTimerDropdown.classList.remove('show');
+        });
+
+        // --- 定时关闭功能 ---
+        const radioTimerBtn = document.getElementById('radioTimerBtn');
+        const radioTimerDropdown = document.getElementById('radioTimerDropdown');
+        const radioTimerCustomInput = document.getElementById('radioTimerCustomInput');
+        const radioTimerCustomOk = document.getElementById('radioTimerCustomOk');
+        const radioTimerCancelBtn = document.getElementById('radioTimerCancelBtn');
+        
+        let radioTimerInterval = null;
+        let radioTimerEndTime = null;
+        let radioTimerTotalMin = null;
+        
+        function formatRadioTime(remaining) {
+            const h = Math.floor(remaining / 3600);
+            const m = Math.floor((remaining % 3600) / 60);
+            const s = remaining % 60;
+            if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+            return m + ':' + String(s).padStart(2,'0');
+        }
+        
+        function radioTimerDropdownItems() {
+            return radioTimerDropdown.querySelectorAll('.radio-timer-item[data-min]');
+        }
+        
+        function updateRadioTimerDropdownUI() {
+            const items = radioTimerDropdownItems();
+            if (!radioTimerEndTime) {
+                items.forEach(el => { el.classList.remove('active-item'); el.innerHTML = el.dataset.min + ' 分钟'; });
+                radioTimerBtn.classList.remove('active');
+                radioTimerCancelBtn.style.display = 'none';
+                return;
+            }
+            const remaining = Math.max(0, Math.ceil((radioTimerEndTime - Date.now()) / 1000));
+            if (remaining <= 0) {
+                clearRadioTimer();
+                return;
+            }
+            radioTimerBtn.classList.add('active');
+            radioTimerCancelBtn.style.display = '';
+            items.forEach(el => {
+                const min = parseInt(el.dataset.min);
+                if (min === radioTimerTotalMin) {
+                    el.classList.add('active-item');
+                    el.innerHTML = min + ' 分钟 <span class="radio-timer-remain">剩 ' + formatRadioTime(remaining) + '</span>';
+                } else {
+                    el.classList.remove('active-item');
+                    el.innerHTML = min + ' 分钟';
+                }
+            });
+        }
+        
+        function clearRadioTimer() {
+            if (radioTimerInterval) { clearInterval(radioTimerInterval); radioTimerInterval = null; }
+            radioTimerEndTime = null;
+            radioTimerTotalMin = null;
+            radioTimerBtn.classList.remove('active');
+            radioTimerCancelBtn.style.display = 'none';
+            const items = radioTimerDropdownItems();
+            items.forEach(el => { el.classList.remove('active-item'); el.innerHTML = el.dataset.min + ' 分钟'; });
+        }
+        
+        function startRadioTimer(minutes) {
+            clearRadioTimer();
+            radioTimerEndTime = Date.now() + minutes * 60 * 1000;
+            radioTimerTotalMin = minutes;
+            updateRadioTimerDropdownUI();
+            radioTimerInterval = setInterval(() => {
+                if (!radioTimerEndTime) { clearRadioTimer(); return; }
+                const remaining = Math.max(0, Math.ceil((radioTimerEndTime - Date.now()) / 1000));
+                if (remaining <= 0) {
+                    clearRadioTimer();
+                    if (!radioAudio.paused) {
+                        radioAudio.pause();
+                        radioPlayBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left:2px;"></i>';
+                    }
+                    return;
+                }
+                updateRadioTimerDropdownUI();
+            }, 1000);
+            radioTimerDropdown.classList.remove('show');
+        }
+        
+        radioTimerBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            updateRadioTimerDropdownUI();
+            radioTimerDropdown.classList.toggle('show');
+        });
+        
+        radioTimerDropdown.addEventListener('click', (e) => {
+            const item = e.target.closest('.radio-timer-item');
+            if (item && item.dataset.min) {
+                startRadioTimer(parseInt(item.dataset.min));
+            }
+        });
+        
+        radioTimerCancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearRadioTimer();
+            radioTimerDropdown.classList.remove('show');
+        });
+        
+        radioTimerCustomOk.addEventListener('click', () => {
+            const val = parseInt(radioTimerCustomInput.value);
+            if (val > 0) startRadioTimer(val);
+        });
+        
+        radioTimerCustomInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const val = parseInt(radioTimerCustomInput.value);
+                if (val > 0) startRadioTimer(val);
+            }
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.radio-timer-wrap')) {
+                radioTimerDropdown.classList.remove('show');
+            }
         });
 
         async function loadChannel(channelUrl, autoPlay = false) {
@@ -2843,7 +3515,14 @@
                 const link = item.querySelector('link')?.textContent || item.querySelector('guid')?.textContent || '';
                 const published = item.querySelector('pubDate')?.textContent || '';
                 const descRaw = item.querySelector('description')?.textContent || '';
+
+                // 【修复】优先从 enclosure 获取音频URL（RSS标准字段，最可靠）
+                const enclosureUrl = item.querySelector('enclosure')?.getAttribute('url') || '';
+
                 const doc = new DOMParser().parseFromString(descRaw, 'text/html');
+
+                // 【修复】先提取 description 中的 audio 标签 src，再移除 audio 和 ul 等标签
+                const descAudioUrl = doc.querySelector('audio')?.getAttribute('src') || '';
 
                 doc.querySelectorAll('script, style, ul, audio').forEach(el => el.remove());
 
@@ -2854,10 +3533,9 @@
                 let imageUrl = doc.querySelector('img')?.getAttribute('src') || '';
                 imageUrl = nhkNormalizeUrl(imageUrl, feedUrl);
 
+                // 【修复】音频URL优先级：enclosure > description中的audio标签
                 const audioUrl = nhkNormalizeUrl(
-                    item.querySelector('enclosure')?.getAttribute('url')
-                    || doc.querySelector('audio')?.getAttribute('src')
-                    || '',
+                    enclosureUrl || descAudioUrl || '',
                     feedUrl
                 );
 
@@ -2990,28 +3668,20 @@
             nhkLoadingList = true;
             nhkHideError();
             nhkSetStatus('正在获取 NHK Easy 列表…');
-            nhkNewsList.innerHTML = `<div class="nhk-empty-state"><i class="ph ph-circle-notch"></i><span>正在连接 NHK NEWS WEB EASY…</span></div>`;
+            nhkNewsList.innerHTML = `<div class="nhk-empty-state"><i class="ph ph-circle-notch"></i><span>正在连接 nhkeasier…</span></div>`;
 
-            const errors = [];
             let loaded = null;
 
             try {
-                loaded = await loadNhkEasyOfficialList();
+                loaded = await loadNhkEasierList();
             } catch (error) {
-                errors.push({ 方案: 'A 官方 JSON', 错误: error.message, url: NHK_EASY_LIST_URL });
-                nhkSetStatus('官方源失败，尝试镜像…', 'ph-warning-circle');
-                try {
-                    loaded = await loadNhkEasierList();
-                } catch (fallbackError) {
-                    errors.push({ 方案: 'B nhkeasier RSS', 错误: fallbackError.message, url: NHK_EASIER_RSS_URL });
-                }
+                nhkShowError('列表加载', error, { url: NHK_EASIER_RSS_URL });
             }
 
             nhkLoadingList = false;
 
             if (!loaded) {
                 nhkItems = [];
-                nhkShowError('列表加载', new Error('所有数据源均失败'), { 尝试记录: errors });
                 nhkNewsList.innerHTML = `<div class="nhk-empty-state"><i class="ph ph-warning-circle"></i><span>无法加载新闻列表，请查看上方红色错误详情。</span></div>`;
                 nhkUpdatedAt.textContent = '--';
                 return;
@@ -3120,11 +3790,13 @@
                         audioUrl: item.audioUrl,
                         bodyHtml: item.bodyHtml,
                         charCount: item.charCount || nhkCountChars(item.bodyHtml),
-                        sourceLabel: item.sourceLabel
+                        sourceLabel: item.sourceLabel,
+                        itemId: item.id
                     };
                 } else {
                     const result = await nhkFetchText(item.url);
                     article = parseNhkEasyArticleHtml(result.text, item, result.url || item.url);
+                    article.itemId = item.id;
                 }
 
                 nhkRenderArticle(article);
@@ -3147,7 +3819,8 @@
                                 audioUrl: mirror.audioUrl || item.audioUrl,
                                 bodyHtml: mirror.bodyHtml,
                                 charCount: mirror.charCount,
-                                sourceLabel: 'NHK Easy 镜像（降级）'
+                                sourceLabel: 'NHK Easy 镜像（降级）',
+                                itemId: item.id
                             });
                             nhkHideError();
                             nhkSetStatus(`镜像降级成功 · ${mirror.charCount} 字`, 'ph-info');
@@ -3171,7 +3844,8 @@
                     bodyHtml: `<p>${nhkEscapeHtml(item.summary || '正文加载失败，请查看上方错误详情。')}</p>`,
                     charCount: 0,
                     sourceLabel: item.sourceLabel,
-                    loadFailed: true
+                    loadFailed: true,
+                    itemId: item.id
                 });
             }
         }
@@ -3450,6 +4124,9 @@
                 </div>
             `;
 
+            // 【关键修复】先停止旧媒体，再设置新HTML，避免nhkStopMedia()清除新音频元素的src
+            nhkStopMedia();
+
             nhkDetailScroll.innerHTML = `
                 <article class="nhk-detail-card">
                     <h1 class="nhk-article-title">${nhkEscapeHtml(article.title || '阅读详情')}</h1>
@@ -3493,8 +4170,9 @@
             const ttsSpeeds = [0.8, 1.0, 1.2, 1.5, 2.0]; 
             let audioSpeedIdx = 1;
             let audioFailed = false;
-
-            nhkStopMedia();
+            
+            // 构造 nhkeasier 镜像音频URL（用于官方音频被墙时降级）
+            const nhkEasierMirrorAudioUrl = article.itemId ? `https://nhkeasier.com/media/mp3/${article.itemId}.mp3` : '';
             
             nhkTtsController = nhkCreateTtsController(bodyContainer, playBtn, progressEl, speedBtn, ttsSpeeds);
 
@@ -3507,11 +4185,65 @@
                 nhkTtsController.toggle(); // 自动开始朗读
             }
 
+            // 尝试播放nhkeasier镜像音频（用于官方音频被墙等场景降级）
+            async function tryNhkEasierMirrorAudio() {
+                if (!nhkEasierMirrorAudioUrl || audioEl.src === nhkEasierMirrorAudioUrl) return false;
+                try {
+                    audioEl.src = nhkEasierMirrorAudioUrl;
+                    audioEl.load();
+                    await audioEl.play();
+                    playBtn.innerHTML = '<i class="ph-fill ph-pause"></i>';
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
             if (hasOfficialAudio) {
                 speedBtn.textContent = audioSpeeds[audioSpeedIdx] + 'x';
 
-                audioEl.addEventListener('error', () => {
-                    audioFailed = true;
+                // 借鉴旧 TTS 控制器的逐段落高亮思路，但用字符占比替代段落均分，精准匹配朗读节奏
+                const nhkParagraphs = Array.from(bodyContainer.querySelectorAll('p')).filter(p => p.textContent.trim().length > 0);
+                // 计算每个段落的纯文本字符数（移除注音 rt），用作朗读进度权重
+                const nhkParaChars = nhkParagraphs.map(p => {
+                    const clone = p.cloneNode(true);
+                    clone.querySelectorAll('rt').forEach(rt => rt.remove());
+                    return clone.textContent.replace(/\s+/g, '').length;
+                });
+                const nhkTotalChars = nhkParaChars.reduce((a, b) => a + b, 0);
+                // 累计字符数，用于快速定位当前段落
+                const nhkCumulative = [];
+                let cumSum = 0;
+                nhkParaChars.forEach(n => { cumSum += n; nhkCumulative.push(cumSum); });
+                let currentHighlightedIdx = -1;
+
+                function clearNhkHighlight() {
+                    if (currentHighlightedIdx < 0) return;
+                    const prev = nhkParagraphs[currentHighlightedIdx];
+                    prev.style.color = '';
+                    prev.style.background = '';
+                    prev.style.borderRadius = '';
+                    prev.style.padding = '';
+                    currentHighlightedIdx = -1;
+                }
+
+                function highlightNhkParagraph(idx) {
+                    if (idx === currentHighlightedIdx || idx < 0 || idx >= nhkParagraphs.length) return;
+                    clearNhkHighlight();
+                    const node = nhkParagraphs[idx];
+                    node.style.color = '#86efac';
+                    node.style.background = 'rgba(74, 222, 128, 0.15)';
+                    node.style.borderRadius = '6px';
+                    node.style.padding = '2px 6px';
+                    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    currentHighlightedIdx = idx;
+                }
+
+                audioEl.addEventListener('error', async () => {
+                    if (audioFailed) return;
+                    clearNhkHighlight();
+                    const mirrorOk = await tryNhkEasierMirrorAudio();
+                    if (!mirrorOk) audioFailed = true;
                 });
 
                 playBtn.onclick = () => {
@@ -3532,22 +4264,35 @@
                         if (playPromise !== undefined) {
                             playPromise.then(() => {
                                 playBtn.innerHTML = '<i class="ph-fill ph-pause"></i>';
-                            }).catch(() => {
-                                switchToTts();
+                            }).catch(async () => {
+                                clearNhkHighlight();
+                                const mirrorOk = await tryNhkEasierMirrorAudio();
+                                if (!mirrorOk) switchToTts();
                             });
                         }
                     } else {
                         audioEl.pause();
                         playBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left: 2px;"></i>';
+                        clearNhkHighlight();
                     }
                 };
 
                 audioEl.addEventListener('timeupdate', () => {
                     if (audioFailed) return;
-                    if (audioEl.duration) {
+                    if (audioEl.duration && nhkParagraphs.length > 0 && nhkTotalChars > 0) {
                         const pct = (audioEl.currentTime / audioEl.duration) * 100;
                         progressEl.value = pct;
                         progressEl.style.background = `linear-gradient(to right, #4ade80 ${pct}%, rgba(255,255,255,0.2) ${pct}%)`;
+                        // 根据当前已经朗读完的总字符数，查找对应的段落（字符占比，不平均分配）
+                        const targetChars = (audioEl.currentTime / audioEl.duration) * nhkTotalChars;
+                        // 找到第一个累计字符超过 targetChars 的段落索引
+                        let targetIdx = 0;
+                        while (targetIdx < nhkCumulative.length && nhkCumulative[targetIdx] <= targetChars) {
+                            targetIdx++;
+                        }
+                        // 范围保护：不超过最后一段，提前高亮当前段落（读完前一段立刻切换下一段）
+                        const paraIdx = Math.min(targetIdx, nhkParagraphs.length - 1);
+                        highlightNhkParagraph(paraIdx);
                     }
                 });
 
@@ -3564,6 +4309,7 @@
                     playBtn.innerHTML = '<i class="ph-fill ph-play" style="margin-left: 2px;"></i>';
                     progressEl.value = 0;
                     progressEl.style.background = 'rgba(255,255,255,0.2)';
+                    clearNhkHighlight();
                 });
 
                 speedBtn.onclick = () => {
@@ -4879,6 +5625,1158 @@
                 if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
             }
         });
+// ==================== 上下文记忆 + 多图拖拽 + 流式输出 核心逻辑 ====================
+        const aiChatBtn = document.getElementById('aiChatBtn');
+        const aiModal = document.getElementById('aiModal');
+        const closeAiBtn = document.getElementById('closeAiBtn');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const chatSendBtn = document.getElementById('chatSendBtn');
+        
+        const chatInputArea = document.getElementById('chatInputArea');
+        const chatAttachBtn = document.getElementById('chatAttachBtn');
+        const chatClearBtn = document.getElementById('chatClearBtn');
+        const chatImageInput = document.getElementById('chatImageInput');
+        const chatImgPreviewContainer = document.getElementById('chatImgPreviewContainer');
+        const aiApiKeyBtn = document.getElementById('aiApiKeyBtn');
+        const aiApiKeyPanel = document.getElementById('aiApiKeyPanel');
+        const aiApiKeyInput = document.getElementById('aiApiKeyInput');
+        const AI_API_KEY_STORAGE_KEY = 'canvas_todo_ai_api_key';
+
+        function getAiApiKey() {
+            return localStorage.getItem(AI_API_KEY_STORAGE_KEY) || '';
+        }
+
+        function saveAiApiKey(key) {
+            localStorage.setItem(AI_API_KEY_STORAGE_KEY, key.trim());
+            updateAiApiKeyUI();
+            updateAiWelcomeMessage();
+        }
+
+        function updateAiApiKeyUI() {
+            const key = getAiApiKey();
+            aiApiKeyInput.value = key;
+            if (key) {
+                aiApiKeyPanel.style.display = 'none';
+                aiApiKeyBtn.innerHTML = '<i class="ph-fill ph-key" style="color:#4ade80;"></i>';
+                aiApiKeyBtn.title = 'API Key 已设置（点击重新编辑）';
+            } else {
+                aiApiKeyPanel.style.display = 'block';
+                aiApiKeyBtn.innerHTML = '<i class="ph ph-key" style="color:#fbbf24;"></i>';
+                aiApiKeyBtn.title = '设置 API Key';
+            }
+        }
+
+        function updateAiWelcomeMessage() {
+            const welcomeMsg = document.getElementById('aiWelcomeMessage');
+            if (!welcomeMsg) return;
+            const key = getAiApiKey();
+            if (key) {
+                welcomeMsg.innerHTML = '数据绝对安全不出电脑，有什么我可以帮你的？（你可以直接拖拽图片到下方输入框）';
+                welcomeMsg.style.color = '';
+            } else {
+                welcomeMsg.innerHTML = '<i class="ph-bold ph-warning-circle"></i> 请先设置 API Key 才能启用云端 AI。点击左上角的 <i class="ph ph-key"></i> 图标输入。';
+                welcomeMsg.style.color = '#fbbf24';
+            }
+        }
+
+        // 🌟 新增：真正的大脑记忆数组
+        let chatHistory = []; 
+        // 🌟 修改：支持多图的数组
+        let currentImagesArray = []; 
+
+        aiChatBtn.addEventListener('click', () => {
+            ['galleryModal', 'historyModal', 'noteArchiveModal', 'learningCenterModal', 'nhkNewsModal'].forEach(id => {
+                const m = document.getElementById(id);
+                if (m) m.classList.remove('show');
+            });
+            if (typeof radioContainer !== 'undefined' && radioContainer) radioContainer.classList.remove('show');
+            if (typeof radioToggleBtn !== 'undefined' && radioToggleBtn) radioToggleBtn.classList.remove('radio-active');
+            
+            document.querySelector('#aiModal .gallery-header span').textContent = '云端 AI (上下文记忆中)';
+            aiModal.classList.add('show');
+            updateAiApiKeyUI();
+            updateAiWelcomeMessage();
+            if (typeof flipContainer !== 'undefined' && flipContainer) flipContainer.classList.add('hide-flipper');
+            setTimeout(() => chatInput.focus(), 200);
+        });
+
+        closeAiBtn.addEventListener('click', () => {
+            aiModal.classList.remove('show');
+            if (typeof flipContainer !== 'undefined' && flipContainer) flipContainer.classList.remove('hide-flipper');
+        });
+
+        // 🌟 修改：清空记忆功能，恢复干净清爽的初始界面
+        chatClearBtn.addEventListener('click', () => {
+            chatHistory = []; // 清空记忆数组
+            currentImagesArray = []; // 清空当前待发图片
+            renderImagePreviews(); // 刷新预览UI
+            // 直接恢复最初的模样，去掉那个突兀的橙色框
+            chatMessages.innerHTML = `
+                <div class="message ai-message" id="aiWelcomeMessage" style="animation: fadeIn 0.3s ease;">
+                    数据绝对安全不出电脑，有什么我可以帮你的？（你可以直接拖拽图片到下方输入框）
+                </div>`;
+            updateAiWelcomeMessage();
+        });
+
+        // API Key 设置交互
+        if (aiApiKeyBtn && aiApiKeyPanel) {
+            aiApiKeyBtn.addEventListener('click', () => {
+                aiApiKeyPanel.style.display = aiApiKeyPanel.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+
+        if (aiApiKeyInput) {
+            aiApiKeyInput.addEventListener('change', () => saveAiApiKey(aiApiKeyInput.value));
+            aiApiKeyInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveAiApiKey(aiApiKeyInput.value);
+                    aiApiKeyInput.blur();
+                }
+            });
+        }
+
+        // 渲染多图预览界面
+        function renderImagePreviews() {
+            if (currentImagesArray.length === 0) {
+                chatImgPreviewContainer.style.display = 'none';
+                chatImgPreviewContainer.innerHTML = '';
+                return;
+            }
+            chatImgPreviewContainer.style.display = 'flex';
+            chatImgPreviewContainer.innerHTML = currentImagesArray.map((img, index) => `
+                <div class="chat-img-preview-wrapper">
+                    <img src="${img}" class="chat-img-preview">
+                    <div class="chat-img-remove" onclick="removeAiImage(${index})" title="移除"><i class="ph-bold ph-x"></i></div>
+                </div>
+            `).join('');
+        }
+
+        // 全局移除单张图片函数
+        window.removeAiImage = function(index) {
+            currentImagesArray.splice(index, 1);
+            renderImagePreviews();
+        };
+
+        // 处理单张图片读取
+        function handleImageFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                currentImagesArray.push(event.target.result);
+                renderImagePreviews();
+                chatInput.focus();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 绑定点击与多图选择
+        if (chatAttachBtn && chatImageInput) {
+            chatAttachBtn.addEventListener('click', () => chatImageInput.click());
+            chatImageInput.addEventListener('change', (e) => {
+                Array.from(e.target.files).forEach(handleImageFile);
+                e.target.value = ''; 
+            });
+        }
+
+        // 绑定多图拖拽
+        if (chatInputArea) {
+            chatInputArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                chatInputArea.classList.add('drag-over');
+            });
+            chatInputArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                chatInputArea.classList.remove('drag-over');
+            });
+            chatInputArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                chatInputArea.classList.remove('drag-over');
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    Array.from(e.dataTransfer.files).forEach(handleImageFile);
+                }
+            });
+        }
+
+        async function sendAiMessage() {
+            const text = chatInput.value.trim();
+            if (!text && currentImagesArray.length === 0) return;
+
+            // 🔑 从本地存储读取 API Key
+            const API_KEY = getAiApiKey();
+            if (!API_KEY) {
+                const errDiv = document.createElement('div');
+                errDiv.className = 'message ai-message';
+                errDiv.style.color = '#fbbf24';
+                errDiv.innerHTML = '<i class="ph-bold ph-warning-circle"></i> 请先设置 API Key 才能启用云端 AI。点击左上角的 <i class="ph ph-key"></i> 图标输入。';
+                chatMessages.appendChild(errDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return;
+            }
+
+            // 1. 渲染用户气泡 (支持多图)
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user-message';
+            let userHtml = '';
+            if (currentImagesArray.length > 0) {
+                userHtml += '<div class="chat-img-grid">';
+                currentImagesArray.forEach(img => {
+                    userHtml += `<img src="${img}">`;
+                });
+                userHtml += '</div>';
+            }
+            if (text) userHtml += text;
+            userDiv.innerHTML = userHtml;
+            chatMessages.appendChild(userDiv);
+            
+            // 缓存本次发送的数据
+            const sentText = text;
+            const sentImages = [...currentImagesArray];
+            
+            // 清空输入区
+            chatInput.value = '';
+            chatInput.style.height = 'auto'; 
+            currentImagesArray = [];
+            renderImagePreviews();
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'chat-loading';
+            loadingDiv.innerHTML = '<i class="ph ph-spinner ph-spin"></i> 大脑全速运转中...';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            chatInput.disabled = true;
+            chatSendBtn.disabled = true;
+            chatAttachBtn.disabled = true;
+            chatClearBtn.disabled = true;
+            chatSendBtn.style.opacity = '0.5';
+
+            try {
+                let targetModel = "glm-5.1";
+                let messageContent;
+
+                // 🌟 判断是有图还是没图
+                if (sentImages.length > 0) {
+                    targetModel = "glm-5v-turbo";
+                    messageContent = [];
+                    if (sentText) messageContent.push({ "type": "text", "text": sentText });
+                    
+                    sentImages.forEach(imgBase64 => {
+                        messageContent.push({ "type": "image_url", "image_url": { "url": imgBase64 } });
+                    });
+                    
+                    if (!sentText) messageContent.push({ "type": "text", "text": "请仔细分析这些图片" });
+                } else {
+                    targetModel = "glm-5.1";
+                    messageContent = sentText;
+                }
+
+                // 将本次对话加入历史记忆
+                chatHistory.push({ role: "user", content: messageContent });
+
+                // 🌟 核心：组装要发送给服务器的数据包
+                const requestPayload = {
+                    model: targetModel, 
+                    messages: chatHistory,
+                    stream: true 
+                };
+
+                // 🌟 激活它的超能力：如果是纯文字聊天，命令它开启后台自动联网搜索！
+                // （视觉模型看图时暂不需要搜索，所以我们只给 5.1 开启）
+                if (targetModel === "glm-5.1") {
+                    requestPayload.tools = [{"type": "web_search", "web_search": {"enable": true}}];
+                }
+
+                // 发送带记忆和联网的请求
+                const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}` 
+                    },
+                    body: JSON.stringify(requestPayload) // 发送刚才组装好的数据包
+                });
+
+                if (!response.ok) {
+                    loadingDiv.remove();
+                    const errText = await response.text();
+                    throw new Error(`报错: ${response.status} - ${errText}`);
+                }
+
+                const aiDiv = document.createElement('div');
+                aiDiv.className = 'message ai-message';
+                aiDiv.style.whiteSpace = 'pre-wrap'; 
+                chatMessages.appendChild(aiDiv);
+                
+                let isFirstChunk = true;
+                let aiFullResponse = ""; // 记录 AI 完整的回复
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.slice(6).trim();
+                            if (dataStr === '[DONE]') continue;
+                            try {
+                                const data = JSON.parse(dataStr);
+                                if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                                    if (isFirstChunk) {
+                                        loadingDiv.remove(); 
+                                        isFirstChunk = false;
+                                    }
+                                    const char = data.choices[0].delta.content;
+                                    aiFullResponse += char; // 拼接到完整回复
+                                    aiDiv.textContent += char; // 渲染到屏幕
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                }
+                if (isFirstChunk) loadingDiv.remove(); 
+                
+                // 🌟 将 AI 的完整回复也记入大脑，形成完整的上下文！
+                chatHistory.push({ role: "assistant", content: aiFullResponse });
+
+            } catch (error) {
+                loadingDiv.remove();
+                const errDiv = document.createElement('div');
+                errDiv.className = 'message ai-message';
+                errDiv.style.color = '#fca5a5';
+                errDiv.innerHTML = `<i class="ph-bold ph-warning-circle"></i> <b>连接失败：</b><br><br>${error.message}`;
+                chatMessages.appendChild(errDiv);
+                
+                // 如果失败了，把刚才那条发出去的问题从记忆里撤销，防止产生死数据
+                chatHistory.pop();
+            } finally {
+                chatInput.disabled = false;
+                chatSendBtn.disabled = false;
+                chatAttachBtn.disabled = false;
+                chatClearBtn.disabled = false;
+                chatSendBtn.style.opacity = '1';
+                chatInput.focus();
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        chatSendBtn.addEventListener('click', sendAiMessage);
+        
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); 
+                sendAiMessage();
+            }
+        });
+        
+        chatInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight < 80 ? this.scrollHeight : 80) + 'px';
+        });
+        // ==================== 流式 AI 助手逻辑结束 ====================
+
+      // ==================== 极简高颜打卡系统核心逻辑 (V2) ====================
+        const habitTrackerBtn = document.getElementById('habitTrackerBtn');
+        const habitModal = document.getElementById('habitModal');
+        const closeHabitBtn = document.getElementById('closeHabitBtn');
+        const habitScroll = document.getElementById('habitScroll');
+        const habitAddBtn = document.getElementById('habitAddBtn');
+
+        // 完美匹配手机直觉：将弹窗右上角的 X 替换为优雅的绕圈返回箭头
+        if (closeHabitBtn) {
+            closeHabitBtn.className = 'ph-bold ph-arrow-u-up-left close-btn';
+            closeHabitBtn.title = '返回主界面';
+        }
+
+        const HABITS_KEY = 'canvas_todo_habits';
+        const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+
+        let globalViewYear = new Date().getFullYear();
+        let globalViewMonth = new Date().getMonth() + 1;
+
+        // 注入极简的动态功能样式（仅包含独立删除感应区和火花标签，保持扁平极简）
+        if (!document.getElementById('habit-dynamic-styles')) {
+            const style = document.createElement('style');
+            style.id = 'habit-dynamic-styles';
+            style.innerHTML = `
+                .habit-block { position: relative; }
+                /* 独立的右上角 48x48 隐形感应区 */
+                .habit-delete-zone {
+                    position: absolute; top: 0; right: 0;
+                    width: 48px; height: 48px;
+                    z-index: 10; cursor: pointer;
+                }
+                .habit-delete-zone i {
+                    position: absolute; top: 14px; right: 14px;
+                    opacity: 0; color: rgba(255,255,255,0.3); font-size: 15px;
+                    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+                }
+                /* 只有鼠标精准进入感应区，X 才会变红并轻微放大 */
+                .habit-delete-zone:hover i {
+                    opacity: 1; color: #ff5252; transform: scale(1.2);
+                }
+                /* 连击火花标签的原始极简样式 */
+                .habit-streak-badge {
+                    font-size: 11px; color: #ff9800; background: rgba(255,152,0,0.15); 
+                    padding: 3px 8px; border-radius: 10px; margin-left: auto; 
+                    flex-shrink: 0; white-space: nowrap; font-weight: bold; cursor: default;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 核心改造：将左侧的日历图标变成“隐形”的月份切换器
+        function initGlobalMonthPicker() {
+            const headerTitleWrap = habitModal.querySelector('.gallery-header > div:first-child');
+            if (!headerTitleWrap) return;
+            
+            const iconEl = headerTitleWrap.querySelector('i.ph-calendar-check');
+            if (iconEl && !iconEl.parentElement.classList.contains('icon-picker-wrap')) {
+                // 用一个包裹器把图标套起来，用来承载点击事件和悬浮特效
+                const wrap = document.createElement('div');
+                wrap.className = 'icon-picker-wrap';
+                wrap.style.cssText = 'position:relative; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);';
+                wrap.title = `当前: ${globalViewYear}年 ${globalViewMonth}月 (点击切换)`;
+                
+                // 增加惊艳的微交互：悬浮时图标微倾斜并发出绿色光晕
+                wrap.addEventListener('mouseenter', () => {
+                    wrap.style.transform = 'scale(1.15) rotate(-8deg)';
+                    iconEl.style.filter = 'drop-shadow(0 0 6px rgba(74,222,128,0.6))';
+                });
+                wrap.addEventListener('mouseleave', () => {
+                    wrap.style.transform = 'scale(1) rotate(0deg)';
+                    iconEl.style.filter = 'none';
+                });
+
+                // 将原图标移入包裹器中
+                iconEl.parentNode.insertBefore(wrap, iconEl);
+                wrap.appendChild(iconEl);
+
+                // 覆盖一个绝对透明的原生月份选择器
+                const hiddenPicker = document.createElement('input');
+                hiddenPicker.type = 'month';
+                hiddenPicker.className = 'hidden-global-month-picker';
+                hiddenPicker.style.cssText = 'position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; cursor:pointer;';
+                hiddenPicker.value = `${globalViewYear}-${String(globalViewMonth).padStart(2,'0')}`;
+                
+                hiddenPicker.addEventListener('change', (e) => {
+                    if (!e.target.value) return;
+                    const [selYear, selMonth] = e.target.value.split('-');
+                    globalViewYear = parseInt(selYear);
+                    globalViewMonth = parseInt(selMonth);
+                    wrap.title = `当前: ${globalViewYear}年 ${globalViewMonth}月 (点击切换)`;
+                    renderHabits();
+                });
+                wrap.appendChild(hiddenPicker);
+            } else {
+                // 如果已经初始化过，只需要更新里面的值即可
+                const wrap = headerTitleWrap.querySelector('.icon-picker-wrap');
+                if (wrap) {
+                    wrap.title = `当前: ${globalViewYear}年 ${globalViewMonth}月 (点击切换)`;
+                    const hiddenPicker = wrap.querySelector('.hidden-global-month-picker');
+                    if (hiddenPicker) hiddenPicker.value = `${globalViewYear}-${String(globalViewMonth).padStart(2,'0')}`;
+                }
+            }
+        }
+
+        function getHabits() { return JSON.parse(localStorage.getItem(HABITS_KEY)) || []; }
+        function saveHabits(habits) { localStorage.setItem(HABITS_KEY, JSON.stringify(habits)); }
+        function getLocalDateStr(year, month, day) { return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`; }
+        function getTodayLocalStr() { const now = new Date(); return getLocalDateStr(now.getFullYear(), now.getMonth() + 1, now.getDate()); }
+        function getDaysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+        function getFirstDayOffset(year, month) { return (new Date(year, month - 1, 1).getDay() + 6) % 7; }
+
+        function calculateStreak(dates) {
+            if (!dates || dates.length === 0) return 0;
+            const sortedDates = [...new Set(dates)].sort().reverse();
+            let streak = 0;
+            let currentDate = new Date();
+            let todayStr = getLocalDateStr(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+            let yesterday = new Date(currentDate);
+            yesterday.setDate(yesterday.getDate() - 1);
+            let yesterdayStr = getLocalDateStr(yesterday.getFullYear(), yesterday.getMonth() + 1, yesterday.getDate());
+
+            let expectedDateStr = sortedDates[0];
+            if (expectedDateStr !== todayStr && expectedDateStr !== yesterdayStr) return 0; 
+
+            let currentCheckDate = new Date(expectedDateStr);
+            for (let i = 0; i < sortedDates.length; i++) {
+                let dStr = getLocalDateStr(currentCheckDate.getFullYear(), currentCheckDate.getMonth() + 1, currentCheckDate.getDate());
+                if (sortedDates[i] === dStr) {
+                    streak++;
+                    currentCheckDate.setDate(currentCheckDate.getDate() - 1);
+                } else { break; }
+            }
+            return streak;
+        }
+
+        function buildCalendarCells(year, month, habit, habits) {
+            const todayStr = getTodayLocalStr();
+            const daysInMonth = getDaysInMonth(year, month);
+            const offset = getFirstDayOffset(year, month);
+            const cells = [];
+            for (let i = 0; i < offset; i++) cells.push(null);
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = getLocalDateStr(year, month, day);
+                cells.push({
+                    day: day, dateStr: dateStr,
+                    isChecked: habit.checkedDates && habit.checkedDates.includes(dateStr),
+                    isToday: dateStr === todayStr, isFuture: dateStr > todayStr
+                });
+            }
+            return cells;
+        }
+
+        function renderSingleHabitBlock(habit, index, habits) {
+            const year = globalViewYear;
+            const month = globalViewMonth;
+            const block = document.createElement('div');
+            block.className = 'habit-block';
+
+            // 独立的隐形感应区，绝不干扰卡片其他部分
+            const deleteZone = document.createElement('div');
+            deleteZone.className = 'habit-delete-zone';
+            deleteZone.title = '彻底删除此项';
+            deleteZone.innerHTML = '<i class="ph-bold ph-x"></i>';
+            deleteZone.addEventListener('click', (e) => {
+                e.stopPropagation();
+                habits.splice(index, 1);
+                saveHabits(habits);
+                renderHabits();
+            });
+            block.appendChild(deleteZone);
+
+            const header = document.createElement('div');
+            header.className = 'habit-header';
+            header.style.paddingRight = '32px'; // 为右上角感应区预留安全距离
+
+            const titleWrap = document.createElement('div');
+            titleWrap.style.display = 'flex';
+            titleWrap.style.alignItems = 'center';
+            titleWrap.style.flex = '1';
+            titleWrap.style.minWidth = '0';
+
+            const titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.className = 'habit-title';
+            titleInput.value = habit.title || '未命名习惯';
+            titleInput.spellcheck = false;
+            titleInput.style.cssText = 'flex: 0 1 auto; font-size: 15.5px; font-weight: 800; text-shadow: 0 1px 3px rgba(0,0,0,0.3);'; 
+            titleInput.addEventListener('change', () => {
+                habit.title = titleInput.value.trim() || '未命名习惯';
+                saveHabits(habits);
+            });
+            titleInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); titleInput.blur(); }
+            });
+            titleWrap.appendChild(titleInput);
+            header.appendChild(titleWrap);
+
+            let streakCount = calculateStreak(habit.checkedDates);
+            if (streakCount > 0) {
+                const streakBadge = document.createElement('div');
+                streakBadge.className = 'habit-streak-badge';
+                streakBadge.innerHTML = `🔥 ${streakCount}天`;
+                header.appendChild(streakBadge);
+            }
+
+            block.appendChild(header);
+
+            const weekdaysRow = document.createElement('div');
+            weekdaysRow.className = 'habit-weekdays';
+            WEEKDAY_LABELS.forEach(w => {
+                const wd = document.createElement('div');
+                wd.className = 'habit-weekday';
+                wd.textContent = w;
+                weekdaysRow.appendChild(wd);
+            });
+            block.appendChild(weekdaysRow);
+
+            const grid = document.createElement('div');
+            grid.className = 'habit-grid';
+
+            const cells = buildCalendarCells(year, month, habit, habits);
+
+            cells.forEach(cell => {
+                const cellDiv = document.createElement('div');
+                if (cell === null) {
+                    cellDiv.style.visibility = 'hidden';
+                    cellDiv.style.pointerEvents = 'none';
+                    grid.appendChild(cellDiv);
+                    return;
+                }
+
+                cellDiv.className = 'habit-cell';
+                cellDiv.dataset.date = cell.dateStr;
+                cellDiv.title = cell.dateStr;
+
+                cellDiv.innerHTML = `
+                    <span class="cell-date">${cell.day}</span>
+                    <i class="ph-bold ph-check cell-check"></i>
+                `;
+
+                if (cell.isFuture) cellDiv.classList.add('future');
+                if (cell.isChecked) cellDiv.classList.add('checked');
+                if (cell.isToday) cellDiv.classList.add('today');
+
+                grid.appendChild(cellDiv);
+            });
+
+            grid.addEventListener('click', (e) => {
+                const cell = e.target.closest('.habit-cell');
+                if (!cell || cell.classList.contains('future')) return;
+                e.stopPropagation();
+
+                const dateStr = cell.dataset.date;
+                playPop();
+
+                // 直接操作数据和DOM，不再重绘整个卡片，彻底消灭闪烁跳动！
+                if (!habit.checkedDates) habit.checkedDates = [];
+                const pos = habit.checkedDates.indexOf(dateStr);
+                let justChecked = false;
+                if (pos > -1) {
+                    habit.checkedDates.splice(pos, 1);
+                    cell.classList.remove('checked');
+                } else {
+                    habit.checkedDates.push(dateStr);
+                    cell.classList.add('checked');
+                    justChecked = true;
+                }
+                saveHabits(habits); 
+
+                cell.classList.remove('pop-anim');
+                void cell.offsetWidth;
+                cell.classList.add('pop-anim');
+                setTimeout(() => cell.classList.remove('pop-anim'), 300);
+
+                // 如果打卡的是当前视图月份的最后一天，自动进入下一个月
+                if (justChecked) {
+                    const [y, m, d] = dateStr.split('-').map(Number);
+                    if (d === getDaysInMonth(y, m)) {
+                        const oldYear = globalViewYear;
+                        const oldMonth = globalViewMonth;
+                        setTimeout(() => {
+                            if (oldMonth === 12) {
+                                globalViewYear = oldYear + 1;
+                                globalViewMonth = 1;
+                            } else {
+                                globalViewYear = oldYear;
+                                globalViewMonth = oldMonth + 1;
+                            }
+                            initGlobalMonthPicker();
+                            renderHabits();
+                        }, 350);
+                        return;
+                    }
+                }
+
+                let newStreakCount = calculateStreak(habit.checkedDates);
+                let badge = block.querySelector('.habit-streak-badge');
+                if (newStreakCount > 0) {
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'habit-streak-badge';
+                        header.appendChild(badge);
+                    }
+                    badge.innerHTML = `🔥 ${newStreakCount}天`;
+                } else if (badge) {
+                    badge.remove();
+                }
+            });
+
+            block.appendChild(grid);
+            return block;
+        }
+
+        function renderHabits() {
+            const habits = getHabits();
+            habitScroll.innerHTML = '';
+
+            // 左上角显示当前视图月份的英文名称（如 August）
+            const monthLabel = document.getElementById('habitMonthLabel');
+            if (monthLabel) {
+                monthLabel.textContent = new Date(globalViewYear, globalViewMonth - 1).toLocaleString('en-US', { month: 'long' });
+            }
+
+            if (habits.length === 0) {
+                habitScroll.innerHTML = `
+                    <div class="empty-gallery" style="margin-top:40px;">
+                        <i class="ph ph-calendar-check" style="font-size:32px; color:rgba(74,222,128,0.6);"></i>
+                        <span>暂无打卡项目<br>点击下方按钮添加你的第一个习惯</span>
+                    </div>
+                `;
+                return;
+            }
+
+            habits.forEach((habit, index) => {
+                const block = renderSingleHabitBlock(habit, index, habits);
+                habitScroll.appendChild(block);
+            });
+        }
+
+        function openHabitModal() {
+            ['galleryModal', 'historyModal', 'noteArchiveModal', 'learningCenterModal', 'nhkNewsModal', 'aiModal'].forEach(id => {
+                const m = document.getElementById(id);
+                if (m) m.classList.remove('show');
+            });
+            if (typeof radioContainer !== 'undefined' && radioContainer) radioContainer.classList.remove('show');
+            if (typeof radioToggleBtn !== 'undefined' && radioToggleBtn) radioToggleBtn.classList.remove('radio-active');
+
+            // 每次打开都回到当前月份，实时跟着日期走
+            const now = new Date();
+            globalViewYear = now.getFullYear();
+            globalViewMonth = now.getMonth() + 1;
+
+            initGlobalMonthPicker();
+            renderHabits();
+            habitModal.classList.add('show');
+            flipContainer.classList.add('hide-flipper');
+        }
+
+        function closeHabitModal() {
+            habitModal.classList.remove('show');
+            flipContainer.classList.remove('hide-flipper');
+        }
+
+        habitTrackerBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openHabitModal();
+        });
+        closeHabitBtn.addEventListener('click', closeHabitModal);
+
+        habitAddBtn.addEventListener('click', () => {
+            const habits = getHabits();
+            habits.push({
+                id: Date.now(),
+                title: '新习惯',
+                createdAt: Date.now(),
+                checkedDates: []
+            });
+            saveHabits(habits);
+            const block = renderSingleHabitBlock(habits[habits.length - 1], habits.length - 1, habits);
+            habitScroll.appendChild(block);
+            setTimeout(() => { habitScroll.scrollTop = habitScroll.scrollHeight; }, 50);
+        });
+        // ==================== 打卡系统逻辑结束 ====================
+
+        // ==================== 顶部按钮组：滚轮水平滚动 + 渐变遮罩 ====================
+        (function initHeaderBtnScrollWheel() {
+            const scrollContainers = document.querySelectorAll('.header-btn-scroll');
+            scrollContainers.forEach(function(scrollEl) {
+                const headerRight = scrollEl.parentElement;
+
+                // 更新渐变遮罩状态
+                function updateMask() {
+                    var maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
+                    headerRight.classList.remove('mask-right', 'mask-left', 'mask-both');
+                    if (maxScroll <= 1) return;
+                    var sl = scrollEl.scrollLeft;
+                    if (sl <= 1) {
+                        headerRight.classList.add('mask-right');
+                    } else if (sl >= maxScroll - 1) {
+                        headerRight.classList.add('mask-left');
+                    } else {
+                        headerRight.classList.add('mask-both');
+                    }
+                }
+
+                // 监听原生 scroll 事件更新遮罩
+                scrollEl.addEventListener('scroll', updateMask, { passive: true });
+
+                // 核心：wheel 事件 —— 纵向滚轮映射为横向滚动
+                scrollEl.addEventListener('wheel', function(e) {
+                    var maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
+                    if (maxScroll <= 0) return;
+
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    var target = scrollEl.scrollLeft + e.deltaY;
+                    // 边界钳制
+                    target = Math.max(0, Math.min(target, maxScroll));
+                    scrollEl.scrollTo({ left: target, behavior: 'smooth' });
+                }, { passive: false });
+
+                // 初始状态
+                updateMask();
+
+                // 窗口尺寸变化时重新评估
+                window.addEventListener('resize', updateMask);
+            });
+        })();
+        // ==================== 顶部按钮组改造结束 ====================
+
+        // ==================== 书签导航逻辑 ====================
+
+        function getBookmarks() {
+            try {
+                const raw = localStorage.getItem('canvas_todo_bookmarks');
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) { return []; }
+        }
+
+        function saveBookmarks(data) {
+            localStorage.setItem('canvas_todo_bookmarks', JSON.stringify(data));
+        }
+
+        function extractDomain(url) {
+            try {
+                const u = new URL(url.startsWith('http') ? url : 'https://' + url);
+                return u.hostname;
+            } catch (e) { return null; }
+        }
+
+        function renderBookmarkDropdown() {
+            const dropdown = document.getElementById('bookmarkDropdown');
+            const bookmarks = getBookmarks();
+            if (!bookmarks.length) {
+                dropdown.innerHTML = '<div class="bookmark-dropdown-empty">暂无书签，点击⭐管理</div>';
+                return;
+            }
+            dropdown.innerHTML = bookmarks.map(b => {
+                const domain = extractDomain(b.url);
+                const favicon = `https://s2.googleusercontent.com/s2/favicons?domain=${domain}&sz=64`;
+                return `<div class="bookmark-dropdown-item" data-url="${b.url.replace(/"/g, '&quot;')}" title="${b.title || b.url}">
+                    <img src="${favicon}" onerror="this.style.display='none'" alt="">
+                    <span>${b.title || domain || b.url}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function renderBookmarkGrid() {
+            const grid = document.getElementById('bookmarkGrid');
+            const bookmarks = getBookmarks();
+            if (!bookmarks.length) {
+                grid.innerHTML = '<div style="color:rgba(255,255,255,0.35); font-size:12px; text-align:center; padding:20px;">粘贴网址添加到下方列表</div>';
+                return;
+            }
+            const isEditMode = !!bmEditMode;
+            grid.innerHTML = bookmarks.map((b, i) => {
+                const domain = extractDomain(b.url);
+                const favicon = `https://s2.googleusercontent.com/s2/favicons?domain=${domain}&sz=64`;
+                const checked = bmEditMode && bmSelected.has(i) ? ' checked' : '';
+                const checkStyle = isEditMode ? 'style="display:flex;"' : '';
+                return `<div class="bookmark-modal-item" data-index="${i}" data-url="${b.url.replace(/"/g, '&quot;')}" draggable="true">
+                    <div class="bookmark-modal-check${checked}" data-index="${i}" ${checkStyle}></div>
+                    <img src="${favicon}" onerror="this.style.display='none'" alt="">
+                    <div class="bm-info">
+                        <span class="bm-title">${b.title || domain || b.url}</span>
+                        <span class="bm-url">${domain || b.url}</span>
+                    </div>
+                    <i class="ph ph-arrow-square-out bookmark-modal-delete" data-index="${i}" title="打开链接"></i>
+                </div>`;
+            }).join('');
+        }
+
+        function openBookmarkModal() {
+            ['galleryModal', 'historyModal', 'noteArchiveModal', 'learningCenterModal', 'nhkNewsModal', 'aiModal', 'habitModal'].forEach(id => {
+                const m = document.getElementById(id);
+                if (m) m.classList.remove('show');
+            });
+            if (typeof radioContainer !== 'undefined' && radioContainer) radioContainer.classList.remove('show');
+            if (typeof radioToggleBtn !== 'undefined' && radioToggleBtn) radioToggleBtn.classList.remove('radio-active');
+
+            renderBookmarkGrid();
+            document.getElementById('bookmarkModal').classList.add('show');
+            flipContainer.classList.add('hide-flipper');
+            setTimeout(() => { document.getElementById('bookmarkInput').focus(); }, 200);
+        }
+
+        function closeBookmarkModal() {
+            document.getElementById('bookmarkModal').classList.remove('show');
+            flipContainer.classList.remove('hide-flipper');
+            document.getElementById('bookmarkInput').value = '';
+        }
+
+        function addBookmark(url) {
+            let cleanUrl = url.trim();
+            if (!cleanUrl) return;
+            if (!/^https?:\/\//i.test(cleanUrl)) {
+                cleanUrl = 'https://' + cleanUrl;
+            }
+            const domain = extractDomain(cleanUrl);
+            if (!domain) return;
+            const bookmarks = getBookmarks();
+            const fallbackTitle = domain.replace(/^www\./, '');
+            bookmarks.push({ url: cleanUrl, title: fallbackTitle, addedAt: Date.now() });
+            const idx = bookmarks.length - 1;
+            saveBookmarks(bookmarks);
+            renderBookmarkDropdown();
+            renderBookmarkGrid();
+            // 后台异步抓取网页真实标题
+            fetchPageTitle(cleanUrl, idx);
+        }
+
+        async function fetchPageTitle(url, index) {
+            try {
+                const result = await ipcRenderer.invoke('universal-fetch-text', url);
+                if (!result || !result.ok || !result.text) return;
+                const html = result.text;
+                const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                if (match && match[1]) {
+                    const title = match[1].replace(/\s+/g, ' ').trim();
+                    if (title && title.length > 2) {
+                        const bookmarks = getBookmarks();
+                        if (index < bookmarks.length && bookmarks[index].url === url) {
+                            bookmarks[index].title = title;
+                            saveBookmarks(bookmarks);
+                            renderBookmarkDropdown();
+                            renderBookmarkGrid();
+                        }
+                    }
+                }
+            } catch (e) {
+                /* 保持 fallback 标题 */
+            }
+        }
+
+        function removeBookmark(index) {
+            const bookmarks = getBookmarks();
+            bookmarks.splice(index, 1);
+            saveBookmarks(bookmarks);
+            renderBookmarkDropdown();
+            renderBookmarkGrid();
+        }
+
+        let bmEditMode = false;
+        let bmSelected = new Set();
+
+        // 书签按钮：hover 控制下拉列表，click 打开管理面板
+        (function initBookmarks() {
+            const bookmarkBtn = document.getElementById('bookmarkBtn');
+            const bookmarkWrap = document.querySelector('.bookmark-wrap');
+            const bookmarkDropdown = document.getElementById('bookmarkDropdown');
+            const bookmarkInput = document.getElementById('bookmarkInput');
+            const closeBookmarkBtn = document.getElementById('closeBookmarkBtn');
+            const bookmarkEditBtn = document.getElementById('bookmarkEditBtn');
+            const bookmarkBatchBar = document.getElementById('bookmarkBatchBar');
+            const bookmarkBatchCount = document.getElementById('bookmarkBatchCount');
+            const bookmarkBatchDel = document.getElementById('bookmarkBatchDel');
+            const bookmarkBatchCancel = document.getElementById('bookmarkBatchCancel');
+
+            if (!bookmarkBtn || !bookmarkWrap) return;
+
+            // 初始渲染下拉列表
+            renderBookmarkDropdown();
+
+            let bmHideTimer = null;
+
+            function showBmDropdown() {
+                clearTimeout(bmHideTimer);
+                renderBookmarkDropdown();
+                bookmarkDropdown.classList.add('show');
+                if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', true);
+            }
+
+            function hideBmDropdown(delay) {
+                clearTimeout(bmHideTimer);
+                if (delay) {
+                    bmHideTimer = setTimeout(() => {
+                        bookmarkDropdown.classList.remove('show');
+                        if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
+                    }, delay);
+                } else {
+                    bookmarkDropdown.classList.remove('show');
+                    if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
+                }
+            }
+
+            function exitEditMode() {
+                bmEditMode = false;
+                bmSelected.clear();
+                bookmarkBatchBar.style.display = 'none';
+                bookmarkEditBtn.style.color = '';
+                renderBookmarkGrid();
+            }
+
+            function updateBatchBar() {
+                bookmarkBatchCount.textContent = '已选 ' + bmSelected.size + ' 项';
+                bookmarkBatchBar.style.display = bmEditMode ? 'flex' : 'none';
+            }
+
+            // 鼠标进入按钮包裹层 → 显示
+            bookmarkWrap.addEventListener('mouseenter', showBmDropdown);
+            bookmarkWrap.addEventListener('mouseleave', () => hideBmDropdown(250));
+            bookmarkDropdown.addEventListener('mouseenter', () => clearTimeout(bmHideTimer));
+            bookmarkDropdown.addEventListener('mouseleave', () => hideBmDropdown(0));
+
+            // 点击书签按钮 → 打开管理面板
+            bookmarkBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                bookmarkDropdown.classList.remove('show');
+                if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
+                exitEditMode();
+                openBookmarkModal();
+            });
+
+            // 关闭管理面板
+            closeBookmarkBtn.addEventListener('click', () => { exitEditMode(); closeBookmarkModal(); });
+
+            // 编辑模式按钮
+            bookmarkEditBtn.addEventListener('click', () => {
+                bmEditMode = !bmEditMode;
+                bmSelected.clear();
+                bookmarkEditBtn.style.color = bmEditMode ? '#4ade80' : '';
+                updateBatchBar();
+                renderBookmarkGrid();
+            });
+
+            // 批量删除
+            bookmarkBatchDel.addEventListener('click', () => {
+                if (bmSelected.size === 0) return;
+                const bookmarks = getBookmarks();
+                const sorted = [...bmSelected].sort((a, b) => b - a);
+                sorted.forEach(idx => bookmarks.splice(idx, 1));
+                saveBookmarks(bookmarks);
+                bmSelected.clear();
+                renderBookmarkDropdown();
+                renderBookmarkGrid();
+                updateBatchBar();
+            });
+
+            // 取消编辑模式
+            bookmarkBatchCancel.addEventListener('click', exitEditMode);
+
+            // 管理面板输入框 Enter 添加书签
+            bookmarkInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addBookmark(bookmarkInput.value);
+                    bookmarkInput.value = '';
+                }
+            });
+
+            // 下拉列表点击 → 打开网址
+            bookmarkDropdown.addEventListener('click', (e) => {
+                const item = e.target.closest('.bookmark-dropdown-item');
+                if (item) {
+                    const url = item.getAttribute('data-url');
+                    if (url) shell.openExternal(url);
+                    bookmarkDropdown.classList.remove('show');
+                    if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
+                }
+            });
+
+            // 管理面板：核心事件（checkbox + 箭头跳转 + 单击标题编辑 + 拖拽排序）
+            document.getElementById('bookmarkGrid').addEventListener('click', (e) => {
+                // checkbox 切换
+                const checkEl = e.target.closest('.bookmark-modal-check');
+                if (checkEl) {
+                    const idx = parseInt(checkEl.getAttribute('data-index'));
+                    if (!isNaN(idx) && bmEditMode) {
+                        if (bmSelected.has(idx)) bmSelected.delete(idx); else bmSelected.add(idx);
+                        renderBookmarkGrid();
+                        updateBatchBar();
+                    }
+                    return;
+                }
+                // 编辑模式下不触发其他操作
+                if (bmEditMode) return;
+                // 编辑输入框存在时不触发
+                if (e.target.closest('.bm-title-input')) return;
+                // 点击箭头按钮 → 打开链接
+                if (e.target.closest('.bookmark-modal-delete')) {
+                    const item = e.target.closest('.bookmark-modal-item');
+                    if (item) {
+                        const url = item.getAttribute('data-url');
+                        if (url) shell.openExternal(url);
+                    }
+                    return;
+                }
+                // 点击标题文字 → 进入编辑
+                const titleEl = e.target.closest('.bm-title');
+                if (titleEl) {
+                    const item = titleEl.closest('.bookmark-modal-item');
+                    if (!item) return;
+                    const idx = parseInt(item.getAttribute('data-index'));
+                    if (isNaN(idx)) return;
+
+                    const currentText = titleEl.textContent;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'bm-title-input';
+                    input.value = currentText;
+                    titleEl.replaceWith(input);
+                    input.focus();
+                    input.select();
+
+                    function finishEdit() {
+                        const newTitle = input.value.trim();
+                        if (newTitle) {
+                            const bookmarks = getBookmarks();
+                            if (idx < bookmarks.length) {
+                                bookmarks[idx].title = newTitle;
+                                saveBookmarks(bookmarks);
+                            }
+                        }
+                        renderBookmarkGrid();
+                        renderBookmarkDropdown();
+                    }
+
+                    input.addEventListener('blur', finishEdit, { once: true });
+                    input.addEventListener('keydown', (ev) => {
+                        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+                        else if (ev.key === 'Escape') { renderBookmarkGrid(); renderBookmarkDropdown(); }
+                    });
+                    return;
+                }
+            });
+
+            // 拖拽排序
+            (function initBmDrag() {
+                const grid = document.getElementById('bookmarkGrid');
+                let bmDragIdx = -1;
+                let bmDragEl = null;
+
+                grid.addEventListener('dragstart', (e) => {
+                    if (bmEditMode) { e.preventDefault(); return; }
+                    const item = e.target.closest('.bookmark-modal-item');
+                    if (!item) { e.preventDefault(); return; }
+                    bmDragIdx = parseInt(item.getAttribute('data-index'));
+                    bmDragEl = item;
+                    item.classList.add('drag-ghost');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(bmDragIdx));
+                });
+
+                grid.addEventListener('dragend', (e) => {
+                    if (bmDragEl) bmDragEl.classList.remove('drag-ghost');
+                    bmDragIdx = -1; bmDragEl = null;
+                });
+
+                grid.addEventListener('dragover', (e) => {
+                    if (bmDragIdx < 0) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+
+                grid.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (bmDragIdx < 0) return;
+                    const targetItem = e.target.closest('.bookmark-modal-item');
+                    if (!targetItem) return;
+                    const targetIdx = parseInt(targetItem.getAttribute('data-index'));
+                    if (isNaN(targetIdx) || targetIdx === bmDragIdx) return;
+
+                    const bookmarks = getBookmarks();
+                    const [moved] = bookmarks.splice(bmDragIdx, 1);
+                    bookmarks.splice(targetIdx, 0, moved);
+                    saveBookmarks(bookmarks);
+                    renderBookmarkGrid();
+                    renderBookmarkDropdown();
+                    bmDragIdx = -1; bmDragEl = null;
+                });
+            })();
+        })();
+        // ==================== 书签导航逻辑结束 ====================
     </script>
 </body>
 </html>
