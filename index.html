@@ -2624,7 +2624,34 @@
 
         function playAudio(text) {
             if (!text) return;
-            new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`).play().catch(e => console.log(e));
+
+            // 精准语言识别：包含中文字符则走中文朗读链路，否则保持原有英语链路
+            const isChinese = /[\u4e00-\u9fa5]/.test(text);
+
+            if (!isChinese) {
+                // 英语：保持原有有道美音发音
+                new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`).play().catch(e => console.log(e));
+                return;
+            }
+
+            // 中文：优先有道 → 回退百度翻译 TTS → 最后本地 Web Speech
+            const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}`;
+            const baiduUrl = `https://fanyi.baidu.com/gettts?lan=zh&text=${encodeURIComponent(text)}&spd=3&source=web`;
+
+            const tryYoudao = new Audio(youdaoUrl);
+            tryYoudao.play().catch(() => {
+                const tryBaidu = new Audio(baiduUrl);
+                tryBaidu.play().catch(() => {
+                    // 本地兜底：浏览器 Web Speech API
+                    if (window.speechSynthesis) {
+                        window.speechSynthesis.cancel();
+                        const u = new SpeechSynthesisUtterance(text);
+                        u.lang = 'zh-CN';
+                        u.rate = 1.0;
+                        window.speechSynthesis.speak(u);
+                    }
+                });
+            });
         }
 
         let audioCtx = null;
@@ -2826,8 +2853,73 @@
         const wordFileInput = document.getElementById('wordFileInput');
         document.querySelectorAll('.class-import-trigger').forEach(btn => {
             btn.addEventListener('click', () => wordFileInput.click());
-        }); 
-        
+        });
+
+        // 智能检测文本是否为中文成语/词语词库
+        function detectChineseVocab(text) {
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            let chineseLineCount = 0;
+            const sampleLines = lines.slice(0, 30);
+            for (const rawLine of sampleLines) {
+                const line = rawLine.replace(/^\s*[\d一二三四五六七八九十百千万]+[\.\)、．]\s*/, '').trim();
+                if (!line) continue;
+                // 行首为至少两个连续中文字符，或包含中文冒号的成语格式
+                if (/^[\u4e00-\u9fa5]{2,}/.test(line) || /^[\u4e00-\u9fa5]+[：:]/.test(line)) {
+                    chineseLineCount++;
+                }
+            }
+            return chineseLineCount >= 3;
+        }
+
+        // 中文成语/词语解析器
+        function parseChineseVocab(text) {
+            const newCustomWords = [];
+            const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            rawLines.forEach(rawLine => {
+                let line = rawLine.replace(/^\s*[\d一二三四五六七八九十百千万]+[\.\)、．]\s*/, '').trim();
+                if (!line) return;
+
+                let term = '';
+                let pinyin = '';
+                let meaning = '';
+
+                const pipeCount = (line.match(/\|/g) || []).length;
+                if (pipeCount >= 2) {
+                    const parts = line.split('|').map(p => p.trim()).filter(p => p);
+                    if (parts.length >= 3) {
+                        term = parts[0];
+                        pinyin = parts[1];
+                        meaning = parts.slice(2).join(' | ');
+                    }
+                } else if (pipeCount === 1) {
+                    const parts = line.split('|').map(p => p.trim()).filter(p => p);
+                    if (parts.length >= 2) {
+                        term = parts[0];
+                        meaning = parts.slice(1).join(' | ');
+                    }
+                } else if (/[：:]/.test(line)) {
+                    const idx = line.search(/[：:]/);
+                    term = line.substring(0, idx).trim();
+                    meaning = line.substring(idx + 1).trim();
+                } else {
+                    const match = line.match(/^[\u4e00-\u9fa5]+(?:[、，,][\u4e00-\u9fa5]+)*/);
+                    if (match) {
+                        term = match[0];
+                        meaning = line.substring(term.length).trim();
+                    }
+                }
+
+                meaning = meaning.replace(/^\s*[\d一二三四五六七八九十百千万]+[\.\)、．]\s*/, '').trim();
+
+                if (term && term.length >= 2 && /[\u4e00-\u9fa5]/.test(term)) {
+                    newCustomWords.push({ word: term, phonetic: pinyin, trans: meaning || '暂无释义' });
+                }
+            });
+
+            return newCustomWords;
+        }
+
         // 升级版：智能多格式单词导入逻辑 (支持 TXT, XLSX, XLS, CSV 并自带盲猜自适应扫描器)
         wordFileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0]; if (!file) return;
@@ -2935,26 +3027,44 @@
             } else {
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    const newCustomWords = [];
-                    event.target.result.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
-                        if (line.includes('|')) {
-                            const parts = line.split('|').map(p => p.trim());
-                            newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
+                    const text = event.target.result;
+                    const isChineseVocab = detectChineseVocab(text);
+
+                    if (isChineseVocab) {
+                        // 中文成语/词语导入分支：导入后覆盖原英语词库
+                        const newCustomWords = parseChineseVocab(text);
+                        if (newCustomWords.length > 0) {
+                            localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords));
+                            localStorage.setItem('todo_word_index', '0');
+                            alert(`已成功导入 ${newCustomWords.length} 条中文词语/成语，已覆盖原词库。`);
+                            updateWord(true);
+                            syncVocabToLearningCenter();
                         } else {
-                            const cnIndex = line.search(/[\u4e00-\u9fa5]/);
-                            if (cnIndex !== -1) {
-                                newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
-                            } else {
-                                newCustomWords.push({ word: line.trim(), phonetic: '', trans: '暂无中文释义' });
-                            }
+                            alert("未能在文本中识别出有效中文词语数据。请按规则格式整理后重试。");
                         }
-                    });
-                    if (newCustomWords.length > 0) {
-                        localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
-                        alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
-                        syncVocabToLearningCenter(); 
                     } else {
-                        alert("未能在文本中识别出有效单词数据。");
+                        // 原有英语单词导入分支
+                        const newCustomWords = [];
+                        text.split('\n').map(l => l.trim()).filter(l => l.length > 0).forEach(line => {
+                            if (line.includes('|')) {
+                                const parts = line.split('|').map(p => p.trim());
+                                newCustomWords.push(parts.length >= 3 ? { word: parts[0], phonetic: parts[1], trans: parts[2] } : { word: parts[0], phonetic: '', trans: parts[1] }); 
+                            } else {
+                                const cnIndex = line.search(/[\u4e00-\u9fa5]/);
+                                if (cnIndex !== -1) {
+                                    newCustomWords.push({ word: line.substring(0, cnIndex).replace(/[-\s]+$/, '').trim(), phonetic: '', trans: line.substring(cnIndex).trim() });
+                                } else {
+                                    newCustomWords.push({ word: line.trim(), phonetic: '', trans: '暂无中文释义' });
+                                }
+                            }
+                        });
+                        if (newCustomWords.length > 0) {
+                            localStorage.setItem('todo_custom_words', JSON.stringify(newCustomWords)); localStorage.setItem('todo_word_index', '0'); 
+                            alert(`已成功覆盖导入 ${newCustomWords.length} 个单词。`); updateWord(true); 
+                            syncVocabToLearningCenter(); 
+                        } else {
+                            alert("未能在文本中识别出有效单词数据。");
+                        }
                     }
                 };
                 reader.readAsText(file, 'utf-8');
