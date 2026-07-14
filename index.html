@@ -2346,7 +2346,7 @@
                 <button class="bookmark-batch-del" id="bookmarkBatchDel"><i class="ph ph-trash"></i> 删除选中</button>
                 <button class="bookmark-batch-cancel" id="bookmarkBatchCancel">取消</button>
             </div>
-            <input type="text" class="bookmark-modal-input" id="bookmarkInput" placeholder="粘贴网址后按 Enter 添加书签..." autocomplete="off">
+            <input type="text" class="bookmark-modal-input" id="bookmarkInput" placeholder="粘贴网址、Word/Excel/HTML等文件路径，按 Enter 添加..." autocomplete="off">
             <div class="bookmark-modal-grid" id="bookmarkGrid"></div>
         </div>
 
@@ -6545,9 +6545,81 @@
 
         function extractDomain(url) {
             try {
+                if (/^file:\/\//i.test(url)) {
+                    const decoded = decodeURIComponent(url.replace(/^file:\/\//, '').split('/').pop() || '');
+                    return decoded || '本地文件';
+                }
                 const u = new URL(url.startsWith('http') ? url : 'https://' + url);
                 return u.hostname;
             } catch (e) { return null; }
+        }
+
+        function normalizeFileUrl(input) {
+            let p = input.trim();
+            if (!p) return null;
+            // 已经是标准 file URI
+            if (/^file:\/\//i.test(p)) return p;
+            // Windows 绝对路径 C:\... 或 C:/... 转成 file:/// URI
+            if (/^[a-zA-Z]:[\\\/]/.test(p)) {
+                p = p.replace(/\\/g, '/');
+                const drive = p.substring(0, 2); // e.g. "C:"
+                const rest = p.substring(2);     // e.g. "/Users/夏凉人/..."
+                const parts = rest.split('/').filter(Boolean).map(part => encodeURIComponent(part));
+                return 'file:///' + drive + '/' + parts.join('/');
+            }
+            return null;
+        }
+
+        // file:// URI → Windows 文件系统路径（供 shell.openPath 使用）
+        function fileUrlToPath(fileUrl) {
+            let p = fileUrl.replace(/^file:\/\/\/?/, '');
+            p = decodeURIComponent(p);
+            p = p.replace(/\//g, '\\');
+            return p;
+        }
+
+        // 根据文件后缀返回 Phosphor 图标类名和颜色（Word/Excel/HTML 等）
+        function getFileIcon(fileUrl) {
+            const lower = fileUrl.toLowerCase();
+            const extMatch = lower.match(/\.([a-z0-9]+)(?:[?#]|$)/);
+            const ext = extMatch ? extMatch[1] : '';
+            const iconMap = {
+                doc:  { icon: 'ph-file-doc',  color: '#60a5fa' },
+                docx: { icon: 'ph-file-doc',  color: '#60a5fa' },
+                xls:  { icon: 'ph-file-xls',  color: '#4ade80' },
+                xlsx: { icon: 'ph-file-xls',  color: '#4ade80' },
+                csv:  { icon: 'ph-file-csv',  color: '#4ade80' },
+                ppt:  { icon: 'ph-file-ppt',  color: '#f87171' },
+                pptx: { icon: 'ph-file-ppt',  color: '#f87171' },
+                pdf:  { icon: 'ph-file-pdf',  color: '#f87171' },
+                html: { icon: 'ph-file-html', color: '#4ade80' },
+                htm:  { icon: 'ph-file-html', color: '#4ade80' },
+                txt:  { icon: 'ph-file-text', color: '#fbbf24' },
+                zip:  { icon: 'ph-file-zip',  color: '#fbbf24' },
+                rar:  { icon: 'ph-file-zip',  color: '#fbbf24' },
+                jpg:  { icon: 'ph-file-image',color: '#c084fc' },
+                jpeg: { icon: 'ph-file-image',color: '#c084fc' },
+                png:  { icon: 'ph-file-image',color: '#c084fc' },
+                gif:  { icon: 'ph-file-image',color: '#c084fc' },
+                webp: { icon: 'ph-file-image',color: '#c084fc' },
+                svg:  { icon: 'ph-file-svg',  color: '#c084fc' },
+                mp3:  { icon: 'ph-file-audio',color: '#fb923c' },
+                wav:  { icon: 'ph-file-audio',color: '#fb923c' },
+                mp4:  { icon: 'ph-file-video',color: '#fb923c' },
+            };
+            const entry = iconMap[ext];
+            return entry
+                ? { icon: entry.icon, color: entry.color }
+                : { icon: 'ph-file', color: '#94a3b8' };
+        }
+
+        // 打开书签链接（智能区分 http / file）
+        function openBookmarkUrl(url) {
+            if (/^file:\/\//i.test(url)) {
+                shell.openPath(fileUrlToPath(url));
+            } else {
+                shell.openExternal(url);
+            }
         }
 
         function renderBookmarkDropdown() {
@@ -6558,10 +6630,13 @@
                 return;
             }
             dropdown.innerHTML = bookmarks.map(b => {
+                const isFile = /^file:\/\//i.test(b.url);
                 const domain = extractDomain(b.url);
-                const favicon = `https://s2.googleusercontent.com/s2/favicons?domain=${domain}&sz=64`;
+                const iconHtml = isFile
+                    ? (() => { const fi = getFileIcon(b.url); return `<i class="ph ${fi.icon}" style="font-size:20px; color:${fi.color}; flex-shrink:0; width:20px; text-align:center;"></i>`; })()
+                    : `<img src="https://s2.googleusercontent.com/s2/favicons?domain=${domain}&sz=64" onerror="this.style.display='none'" alt="">`;
                 return `<div class="bookmark-dropdown-item" data-url="${b.url.replace(/"/g, '&quot;')}" title="${b.title || b.url}">
-                    <img src="${favicon}" onerror="this.style.display='none'" alt="">
+                    ${iconHtml}
                     <span>${b.title || domain || b.url}</span>
                 </div>`;
             }).join('');
@@ -6576,13 +6651,16 @@
             }
             const isEditMode = !!bmEditMode;
             grid.innerHTML = bookmarks.map((b, i) => {
+                const isFile = /^file:\/\//i.test(b.url);
                 const domain = extractDomain(b.url);
-                const favicon = `https://s2.googleusercontent.com/s2/favicons?domain=${domain}&sz=64`;
+                const iconHtml = isFile
+                    ? (() => { const fi = getFileIcon(b.url); return `<i class="ph ${fi.icon}" style="font-size:24px; color:${fi.color}; flex-shrink:0; width:24px; text-align:center;"></i>`; })()
+                    : `<img src="https://s2.googleusercontent.com/s2/favicons?domain=${domain}&sz=64" onerror="this.style.display='none'" alt="">`;
                 const checked = bmEditMode && bmSelected.has(i) ? ' checked' : '';
                 const checkStyle = isEditMode ? 'style="display:flex;"' : '';
                 return `<div class="bookmark-modal-item" data-index="${i}" data-url="${b.url.replace(/"/g, '&quot;')}" draggable="true">
                     <div class="bookmark-modal-check${checked}" data-index="${i}" ${checkStyle}></div>
-                    <img src="${favicon}" onerror="this.style.display='none'" alt="">
+                    ${iconHtml}
                     <div class="bm-info">
                         <span class="bm-title">${b.title || domain || b.url}</span>
                         <span class="bm-url">${domain || b.url}</span>
@@ -6615,20 +6693,35 @@
         function addBookmark(url) {
             let cleanUrl = url.trim();
             if (!cleanUrl) return;
-            if (!/^https?:\/\//i.test(cleanUrl)) {
+
+            let isFile = false;
+            let fileTitle = '';
+
+            // 本地文件路径或 file:// URI 处理
+            const fileUrl = normalizeFileUrl(cleanUrl);
+            if (fileUrl) {
+                cleanUrl = fileUrl;
+                isFile = true;
+                fileTitle = extractDomain(cleanUrl) || '本地文件';
+            } else if (!/^https?:\/\//i.test(cleanUrl)) {
                 cleanUrl = 'https://' + cleanUrl;
             }
+
             const domain = extractDomain(cleanUrl);
-            if (!domain) return;
+            if (!domain && !isFile) return;
+
             const bookmarks = getBookmarks();
-            const fallbackTitle = domain.replace(/^www\./, '');
+            const fallbackTitle = isFile ? fileTitle : domain.replace(/^www\./, '');
             bookmarks.push({ url: cleanUrl, title: fallbackTitle, addedAt: Date.now() });
             const idx = bookmarks.length - 1;
             saveBookmarks(bookmarks);
             renderBookmarkDropdown();
             renderBookmarkGrid();
-            // 后台异步抓取网页真实标题
-            fetchPageTitle(cleanUrl, idx);
+
+            // 本地文件不抓取网页标题
+            if (!isFile) {
+                fetchPageTitle(cleanUrl, idx);
+            }
         }
 
         async function fetchPageTitle(url, index) {
@@ -6775,7 +6868,7 @@
                 const item = e.target.closest('.bookmark-dropdown-item');
                 if (item) {
                     const url = item.getAttribute('data-url');
-                    if (url) shell.openExternal(url);
+                    if (url) openBookmarkUrl(url);
                     bookmarkDropdown.classList.remove('show');
                     if (typeof ipcRenderer !== 'undefined') ipcRenderer.send('dropdown-state', false);
                 }
@@ -6803,7 +6896,7 @@
                     const item = e.target.closest('.bookmark-modal-item');
                     if (item) {
                         const url = item.getAttribute('data-url');
-                        if (url) shell.openExternal(url);
+                        if (url) openBookmarkUrl(url);
                     }
                     return;
                 }
