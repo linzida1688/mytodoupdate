@@ -1723,6 +1723,103 @@
         .ai-apikey-input { width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 10px; color: white; font-size: 13px; outline: none; transition: border-color 0.2s, background 0.2s; }
         .ai-apikey-input:focus { border-color: rgba(74, 222, 128, 0.5); background: rgba(255,255,255,0.12); }
         .ai-apikey-input::placeholder { color: rgba(255,255,255,0.35); }
+
+        /* ==================== 本地文件 Agent 任务舱 ==================== */
+        .agent-mission-panel {
+            background: linear-gradient(135deg, rgba(74,222,128,0.16), rgba(34,197,94,0.045));
+            border: 1px solid rgba(74,222,128,0.32);
+            border-radius: 14px;
+            padding: 11px 12px;
+            margin-bottom: 8px;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .agent-mission-panel::after {
+            content: '';
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            right: -48px;
+            top: -58px;
+            border-radius: 50%;
+            background: rgba(74,222,128,0.14);
+            filter: blur(18px);
+            pointer-events: none;
+        }
+        .agent-kicker { display:flex; align-items:center; gap:5px; color:#86efac; font-size:10px; font-weight:800; letter-spacing:1.1px; }
+        .agent-mission-title { margin-top:4px; color:#fff; font-size:14px; font-weight:800; letter-spacing:0.2px; }
+        .agent-mission-copy { margin-top:3px; color:rgba(255,255,255,0.62); font-size:11px; line-height:1.45; }
+        .agent-mission-meta { display:flex; align-items:center; gap:7px; margin-top:8px; flex-wrap:wrap; }
+        .agent-meta-pill { background:rgba(0,0,0,0.19); color:rgba(255,255,255,0.74); border:1px solid rgba(255,255,255,0.1); padding:3px 7px; border-radius:999px; font-size:10px; }
+        .agent-meta-pill strong { color:#86efac; font-weight:800; }
+        .agent-mission-action {
+            margin-left:auto;
+            position:relative;
+            z-index:1;
+            border:0;
+            border-radius:8px;
+            background:#4ade80;
+            color:#102018;
+            padding:5px 8px;
+            font-size:11px;
+            font-family:inherit;
+            font-weight:800;
+            cursor:pointer;
+            transition:transform .18s, box-shadow .18s;
+        }
+        .agent-mission-action:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(74,222,128,.28); }
+        .agent-quick-prompts { display:flex; gap:6px; overflow-x:auto; padding:0 1px 7px; scrollbar-width:none; flex-shrink:0; }
+        .agent-quick-prompts::-webkit-scrollbar { display:none; }
+        .agent-prompt-chip {
+            flex:0 0 auto;
+            border:1px solid rgba(255,255,255,.12);
+            background:rgba(255,255,255,.06);
+            color:rgba(255,255,255,.76);
+            font:500 11px inherit;
+            padding:5px 8px;
+            border-radius:999px;
+            cursor:pointer;
+            transition:all .18s;
+        }
+        .agent-prompt-chip:hover { color:#86efac; border-color:rgba(74,222,128,.45); background:rgba(74,222,128,.1); }
+        .agent-execution-card {
+            align-self:stretch;
+            background:linear-gradient(145deg, rgba(15,35,25,.9), rgba(17,29,23,.9));
+            border:1px solid rgba(74,222,128,.26);
+            border-radius:14px;
+            padding:11px;
+            box-shadow:0 8px 22px rgba(0,0,0,.18);
+            animation:agentCardIn .36s cubic-bezier(.2,.9,.25,1.25) both;
+        }
+        @keyframes agentCardIn { from { opacity:0; transform:translateY(10px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+        .agent-card-top { display:flex; align-items:flex-start; gap:8px; }
+        .agent-orb { width:27px; height:27px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; border-radius:9px; background:rgba(74,222,128,.16); color:#86efac; box-shadow:inset 0 0 0 1px rgba(74,222,128,.2); }
+        .agent-card-kicker { color:#86efac; font-size:9px; font-weight:800; letter-spacing:1px; }
+        .agent-card-title { margin-top:2px; color:#fff; font-size:13px; font-weight:800; }
+        .agent-card-goal { color:rgba(255,255,255,.55); font-size:11px; margin-top:6px; line-height:1.45; }
+        .agent-steps { margin-top:9px; display:flex; flex-direction:column; gap:6px; }
+        .agent-step { display:flex; gap:7px; align-items:flex-start; color:rgba(255,255,255,.76); font-size:11px; line-height:1.35; }
+        .agent-step i { color:#4ade80; margin-top:1px; }
+        .agent-step small { color:rgba(255,255,255,.42); display:block; margin-top:1px; }
+        .agent-card-actions { display:flex; gap:7px; margin-top:10px; flex-wrap:wrap; }
+        .agent-card-action { border:1px solid rgba(74,222,128,.3); background:rgba(74,222,128,.13); color:#86efac; border-radius:8px; padding:5px 8px; cursor:pointer; font:700 11px inherit; }
+        .agent-card-action:hover { background:rgba(74,222,128,.23); }
+        .agent-progress-note { align-self:flex-start; display:flex; align-items:center; gap:6px; color:rgba(255,255,255,.55); font-size:11px; padding:6px 2px; }
+        .agent-progress-note i { color:#86efac; }
+        .agent-file-results { margin-top:8px; display:flex; flex-direction:column; gap:4px; }
+        .agent-file-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06); transition:background .15s; cursor:pointer; }
+        .agent-file-row:hover { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.12); }
+        .agent-file-icon { width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:15px; line-height:1; background:rgba(255,255,255,.05); }
+        .agent-file-info { min-width:0; flex:1; }
+        .agent-file-name { color:rgba(255,255,255,.88); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:600; line-height:1.3; }
+        .agent-file-path { color:rgba(255,255,255,.34); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; font-size:9px; line-height:1.3; }
+        .agent-file-buttons { display:flex; gap:4px; flex:0 0 auto; }
+        .agent-file-button { border:1px solid rgba(74,222,128,.24); background:rgba(74,222,128,.11); color:#86efac; border-radius:5px; padding:3px 7px; cursor:pointer; font:700 10px inherit; transition:all .15s; white-space:nowrap; }
+        .agent-file-button:hover { background:rgba(74,222,128,.22); border-color:rgba(74,222,128,.4); }
+        .agent-file-button.secondary { color:rgba(255,255,255,.55); border-color:rgba(255,255,255,.1); background:rgba(255,255,255,.04); }
+        .agent-file-button.secondary:hover { background:rgba(255,255,255,.1); color:rgba(255,255,255,.75); }
+        .agent-file-score-badge { font-size:8px; color:#4ade80; background:rgba(74,222,128,.1); padding:1px 4px; border-radius:99px; margin-left:5px; font-weight:700; flex-shrink:0; }
         /* ==================== 本地 AI 助手样式结束 ==================== */
     /* 发送图片及流式输出相关样式优化 (支持多图) */
        .chat-img-preview-container { display: none; background: rgba(255,255,255,0.1); padding: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); align-items: center; gap: 8px; width: fit-content; margin-bottom: 8px; max-width: 100%; flex-wrap: wrap; max-height: 120px; overflow-y: auto; overflow-x: hidden; }
@@ -2354,7 +2451,7 @@
             <div class="gallery-header" style="margin-bottom: 12px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <i class="ph-fill ph-robot" style="color:#4ade80; font-size:20px;"></i>
-                    <span style="font-size:14px; letter-spacing:0.5px;">云端 AI (GLM-5 旗舰)</span>
+                    <span id="aiAgentTitle" style="font-size:14px; letter-spacing:0.5px;">File Scout Agent</span>
                     <div class="icon-btn" id="aiApiKeyBtn" title="设置 API Key"><i class="ph ph-key"></i></div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -2369,8 +2466,14 @@
                 <input type="password" id="aiApiKeyInput" class="ai-apikey-input" placeholder="例如：27084bd100fc4b0d833933ca2ec6e427.xxx">
             </div>
             <div class="chat-container">
+                <div class="agent-mission-panel" id="agentMissionPanel"></div>
+                <div class="agent-quick-prompts" id="agentQuickPrompts">
+                    <button class="agent-prompt-chip" data-agent-prompt="帮我查找简历文件">🔎 查找我的简历</button>
+                    <button class="agent-prompt-chip" data-agent-prompt="帮我查找并打开项目报告">📂 查找并打开文件</button>
+                    <button class="agent-prompt-chip" data-agent-prompt="刷新本地文件索引">↻ 刷新本地索引</button>
+                </div>
                 <div class="chat-messages" id="chatMessages">
-                    <div class="message ai-message" id="aiWelcomeMessage">数据绝对安全不出电脑，有什么我可以帮你的？（你可以直接拖拽图片到下方输入框）</div>
+                    <div class="message ai-message" id="aiWelcomeMessage">我是你的本地文件 Agent。试试说“帮我查找简历”或“查找并打开项目报告”。</div>
                 </div>
                 <div class="chat-img-preview-container" id="chatImgPreviewContainer">
                     <img id="chatImgPreview" class="chat-img-preview" src="">
@@ -2384,7 +2487,7 @@
                     <button class="chat-attach-btn" id="chatAttachBtn" title="上传多张图片 (支持拖拽)"><i class="ph ph-image"></i></button>
                     <input type="file" id="chatImageInput" accept="image/png, image/jpeg, image/webp" multiple style="display: none;">
                     
-                    <textarea class="chat-input" id="chatInput" placeholder="发图或问问题..." rows="1"></textarea>
+                    <textarea class="chat-input" id="chatInput" placeholder="例如：查找并打开简历；搜索项目报告..." rows="1"></textarea>
                     <button class="chat-send-btn" id="chatSendBtn" title="发送"><i class="ph-bold ph-paper-plane-right"></i></button>
                 </div>
             </div>
@@ -3090,7 +3193,7 @@
         const radioSpeedBtn = document.getElementById('radioSpeedBtn');
 
         const PODCAST_CHANNELS = [
-            { name: "       日语频道        ", url: "" },
+            { name: "       日英频道        ", url: "" },
             { name: "The Bite Size Japanese (推荐)", url: "https://anchor.fm/s/463a19c0/podcast/rss" },
             { name: "Nihongo con Teppei (最火日语 国外)", url: "https://nihongoconteppei.com/feed/podcast/" },
             { name: "YUYUの日本語Podcast (推荐)", url: "https://anchor.fm/s/cda85d4/podcast/rss" },
@@ -3109,6 +3212,12 @@
             { name: "ゆとりっ娘たちのたわごと", url: "https://anchor.fm/s/6e491dbc/podcast/rss" },
             { name: "あかね的日本語教室", url: "https://anchor.fm/s/1fe5323c/podcast/rss" },
             { name: "简明日语", url: "https://www.nhk.or.jp/nhkworld/lesson/zh/rss/podcast.xml" },
+            { name: "BBC 6 Minute English", url: "https://podcasts.files.bbci.co.uk/p02pc9tn.rss" },
+            { name: "Culips Everyday English", url: "https://esl.culips.com/feed/podcast" },
+            { name: "Spotlight English: Advanced", url:             "https://www.spreaker.com/show/4083252/episodes/feed" },
+                 { name: "大学英语四级听力真题", url: "https://linzida1688.github.io/cet4/podcast.xml" },
+
+
 
 
             { name: "        中文电台        ", url: "" },
@@ -4482,7 +4591,8 @@
             nhkLoadNews(true);
         });
         setInterval(() => {
-            if (nhkNewsModal.classList.contains('show')) nhkLoadNews(true);
+            // 仅在列表页时自动刷新；阅读正文详情页时保持不动，避免被强制刷新切回列表页
+            if (nhkNewsModal.classList.contains('show') && nhkDetailView.hidden) nhkLoadNews(true);
         }, NHK_AUTO_REFRESH_INTERVAL);
         // ==================== NHK Easy 日语短文阅读结束 ====================
 
@@ -4685,18 +4795,28 @@
             return list;
         }
 
+        // 计算未掌握单词总数（与词汇管理列表的过滤逻辑保持一致）
+        function updateTotalWordCountLabel() {
+            const unmasteredCount = userVocabDb.filter(item => {
+                if (!item || !item.word) return false;
+                const state = memoryStates[item.word];
+                return !(state && state.status === 'mastered');
+            }).length;
+            totalWordCountLabel.textContent = unmasteredCount;
+        }
+
         // 初始化加载学习状态
         function loadLearningState() {
             userVocabDb = getCombinedVocabDb();
             memoryStates = JSON.parse(localStorage.getItem('canvas_todo_vocab_states')) || {};
             studyMode = localStorage.getItem('canvas_todo_study_mode') || 'main';
-            totalWordCountLabel.textContent = userVocabDb.length;
+            updateTotalWordCountLabel();
         }
 
         function saveLearningState() {
             localStorage.setItem('canvas_todo_vocab_states', JSON.stringify(memoryStates));
             localStorage.setItem('canvas_todo_study_mode', studyMode);
-            totalWordCountLabel.textContent = userVocabDb.length;
+            updateTotalWordCountLabel();
         }
 
         // 顺序扫描并自动跳过已掌握(mastered)的词
@@ -5089,13 +5209,7 @@
                     setTimeout(() => {
                         // 在离场动效结束后直接从 DOM 容器中物理移除
                         wrapper.remove();
-                        setWordMastered(item.word);
-                        
-                        // 慢速局部减少词库总数标签，不需要重渲染全量列表，极其顺滑
-                        const currentCount = parseInt(totalWordCountLabel.textContent) || 0;
-                        if (currentCount > 0) {
-                            totalWordCountLabel.textContent = currentCount - 1;
-                        }
+                        setWordMastered(item.word); // 内部 saveLearningState 会同步刷新总数标签
                         
                         // 从检索数组中动态裁剪，维护滚动的边界索引一致性
                         filteredUnmasteredWords = filteredUnmasteredWords.filter(w => w.word !== item.word);
@@ -5637,6 +5751,7 @@
             renderTasks(); 
             renderMinimalistTasks();
             if(historyModal.classList.contains('show')) { renderHistoryTasks(); }
+            if (typeof renderFileAgentPanel === 'function') renderFileAgentPanel();
         }
         
         addTaskBtn.addEventListener('click', (e) => {
@@ -5777,9 +5892,10 @@
                 aiApiKeyBtn.innerHTML = '<i class="ph-fill ph-key" style="color:#4ade80;"></i>';
                 aiApiKeyBtn.title = 'API Key 已设置（点击重新编辑）';
             } else {
-                aiApiKeyPanel.style.display = 'block';
+                // 基础 Agent 工具不需要云端 Key；只有用户主动点钥匙时才展开配置。
+                aiApiKeyPanel.style.display = 'none';
                 aiApiKeyBtn.innerHTML = '<i class="ph ph-key" style="color:#fbbf24;"></i>';
-                aiApiKeyBtn.title = '设置 API Key';
+                aiApiKeyBtn.title = '设置 API Key（复杂问答与图片分析）';
             }
         }
 
@@ -5788,11 +5904,11 @@
             if (!welcomeMsg) return;
             const key = getAiApiKey();
             if (key) {
-                welcomeMsg.innerHTML = '数据绝对安全不出电脑，有什么我可以帮你的？（你可以直接拖拽图片到下方输入框）';
+                welcomeMsg.innerHTML = '我是你的 <b>本地文件 Agent</b>。我会检索电脑中的文件、按相关度排序，并通过系统默认程序打开它。';
                 welcomeMsg.style.color = '';
             } else {
-                welcomeMsg.innerHTML = '<i class="ph-bold ph-warning-circle"></i> 请先设置 API Key 才能启用云端 AI。点击左上角的 <i class="ph ph-key"></i> 图标输入。';
-                welcomeMsg.style.color = '#fbbf24';
+                welcomeMsg.innerHTML = '先试试下方快捷指令：<b>查找文件、查找并打开、刷新索引</b>都无需 API Key；复杂问答和图片分析再设置云端 AI。';
+                welcomeMsg.style.color = '';
             }
         }
 
@@ -5800,6 +5916,814 @@
         let chatHistory = []; 
         // 🌟 修改：支持多图的数组
         let currentImagesArray = []; 
+
+        // ==================== JobFlow Agent：目标 → 计划 → 工具 → 结果 ====================
+        // 这些工具故意不依赖云端模型，因此没有 API Key 时也可以完整演示 Agent 的执行闭环。
+        const JOB_AGENT_STORAGE_KEY = 'canvas_todo_jobflow_mission_v1';
+        const AGENT_WEBSITE_CATALOG = [
+            { title: '哔哩哔哩', url: 'https://www.bilibili.com', aliases: ['哔哩哔哩', 'bilibili', 'b站', 'bilibili网站'] },
+            { title: 'BOSS直聘', url: 'https://www.zhipin.com', aliases: ['boss直聘', 'boss', '直聘'] },
+            { title: '牛客网', url: 'https://www.nowcoder.com', aliases: ['牛客网', '牛客'] },
+            { title: '拉勾招聘', url: 'https://www.lagou.com', aliases: ['拉勾招聘', '拉勾'] },
+            { title: '猎聘', url: 'https://www.liepin.com', aliases: ['猎聘'] },
+            { title: '智联招聘', url: 'https://www.zhaopin.com', aliases: ['智联招聘', '智联'] },
+            { title: '前程无忧', url: 'https://www.51job.com', aliases: ['前程无忧', '51job'] },
+            { title: '领英', url: 'https://www.linkedin.com', aliases: ['领英', 'linkedin'] },
+            { title: 'GitHub', url: 'https://github.com', aliases: ['github', 'github网站'] },
+            { title: '知乎', url: 'https://www.zhihu.com', aliases: ['知乎'] },
+            { title: '小红书', url: 'https://www.xiaohongshu.com', aliases: ['小红书'] },
+            { title: 'OpenAI', url: 'https://openai.com', aliases: ['openai', 'chatgpt'] }
+        ];
+
+        function escapeAgentHtml(value) {
+            return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+        }
+
+        function agentCompactText(value) {
+            return String(value || '').toLowerCase().replace(/\s+/g, '').replace(/[，。、“”"'！!？?]/g, '');
+        }
+
+        function getJobMission() {
+            try { return JSON.parse(localStorage.getItem(JOB_AGENT_STORAGE_KEY)) || null; }
+            catch (e) { return null; }
+        }
+
+        function saveJobMission(mission) {
+            localStorage.setItem(JOB_AGENT_STORAGE_KEY, JSON.stringify(mission));
+        }
+
+        function formatAgentTime(timestamp) {
+            if (!timestamp) return '未设时间';
+            return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(timestamp));
+        }
+
+        function scrollAgentChat() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function appendAgentUserMessage(text) {
+            const bubble = document.createElement('div');
+            bubble.className = 'message user-message';
+            bubble.textContent = text;
+            chatMessages.appendChild(bubble);
+            scrollAgentChat();
+        }
+
+        function appendAgentProgress(text) {
+            const note = document.createElement('div');
+            note.className = 'agent-progress-note';
+            note.innerHTML = `<i class="ph ph-spinner ph-spin"></i><span>${escapeAgentHtml(text)}</span>`;
+            chatMessages.appendChild(note);
+            scrollAgentChat();
+            return note;
+        }
+
+        function appendAgentExecutionCard({ title, goal, steps, actions = [] }) {
+            const card = document.createElement('section');
+            card.className = 'agent-execution-card';
+            const stepsHtml = (steps || []).map(step => `
+                <div class="agent-step">
+                    <i class="ph-fill ph-check-circle"></i>
+                    <span><b>${escapeAgentHtml(step.title)}</b><small>${escapeAgentHtml(step.detail)}</small></span>
+                </div>`).join('');
+            card.innerHTML = `
+                <div class="agent-card-top">
+                    <div class="agent-orb"><i class="ph-fill ph-sparkle"></i></div>
+                    <div><div class="agent-card-kicker">AGENT EXECUTION TRACE</div><div class="agent-card-title">${escapeAgentHtml(title)}</div></div>
+                </div>
+                ${goal ? `<div class="agent-card-goal">${escapeAgentHtml(goal)}</div>` : ''}
+                <div class="agent-steps">${stepsHtml}</div>
+                ${actions.length ? '<div class="agent-card-actions"></div>' : ''}`;
+            const actionWrap = card.querySelector('.agent-card-actions');
+            actions.forEach(action => {
+                const button = document.createElement('button');
+                button.className = 'agent-card-action';
+                button.textContent = action.label;
+                button.addEventListener('click', action.onClick);
+                actionWrap.appendChild(button);
+            });
+            chatMessages.appendChild(card);
+            scrollAgentChat();
+            return card;
+        }
+
+        function renderAgentMissionPanel() {
+            const panel = document.getElementById('agentMissionPanel');
+            if (!panel) return;
+            const mission = getJobMission();
+            if (!mission) {
+                panel.innerHTML = `
+                    <div class="agent-kicker"><i class="ph-fill ph-sparkle"></i> JOBFLOW AGENT · READY</div>
+                    <div class="agent-mission-title">给我一个求职目标，我负责把它变成今天的行动</div>
+                    <div class="agent-mission-copy">例如：“我想找上海前端实习，帮我开启 7 天冲刺”。</div>
+                    <div class="agent-mission-meta"><span class="agent-meta-pill">会调用 <strong>书签 · 待办 · 提醒</strong></span><button class="agent-mission-action" data-agent-start>开始演示</button></div>`;
+                panel.querySelector('[data-agent-start]')?.addEventListener('click', () => runJobSprint('帮我开启 7 天前端求职冲刺', false));
+                return;
+            }
+            const missionTasks = tasks.filter(task => task.agentMissionId === mission.id);
+            const completed = missionTasks.filter(task => task.completed).length;
+            const daysPassed = Math.max(1, Math.ceil((Date.now() - mission.startedAt) / 86400000) + 1);
+            panel.innerHTML = `
+                <div class="agent-kicker"><i class="ph-fill ph-radar"></i> JOBFLOW AGENT · MISSION ACTIVE</div>
+                <div class="agent-mission-title">${escapeAgentHtml(mission.location)} · ${escapeAgentHtml(mission.role)} 求职冲刺</div>
+                <div class="agent-mission-copy">第 ${Math.min(daysPassed, mission.durationDays)} / ${mission.durationDays} 天 · Agent 正持续保留你的行动上下文</div>
+                <div class="agent-mission-meta">
+                    <span class="agent-meta-pill">今日进度 <strong>${completed}/${missionTasks.length}</strong></span>
+                    <span class="agent-meta-pill">入口 <strong>${mission.portalCount}</strong></span>
+                    <button class="agent-mission-action" data-agent-open-portal>开始筛选</button>
+                </div>`;
+            panel.querySelector('[data-agent-open-portal]')?.addEventListener('click', () => {
+                const portal = findAgentBookmark('BOSS直聘') || resolveKnownWebsite('BOSS直聘');
+                if (portal) {
+                    openBookmarkUrl(portal.url);
+                    appendAgentExecutionCard({
+                        title: '已打开第一招聘入口',
+                        goal: 'Agent 没有替你盲目投递，而是把控制权保留给你。',
+                        steps: [
+                            { title: '读取任务舱上下文', detail: `${mission.location} · ${mission.role}` },
+                            { title: '调用 open_bookmark', detail: portal.title },
+                            { title: '交接给你筛选岗位', detail: '投递前仍需你确认岗位信息' }
+                        ]
+                    });
+                }
+            });
+        }
+
+        function resolveKnownWebsite(name) {
+            const compact = agentCompactText(name);
+            if (!compact) return null;
+            return AGENT_WEBSITE_CATALOG.find(site => site.aliases.some(alias => compact.includes(agentCompactText(alias)))) || null;
+        }
+
+        function findAgentBookmark(query) {
+            const compact = agentCompactText(query);
+            if (!compact) return null;
+            return getBookmarks().find(bookmark => {
+                const haystack = agentCompactText(`${bookmark.title || ''} ${bookmark.url || ''}`);
+                return haystack.includes(compact) || compact.includes(agentCompactText(bookmark.title || ''));
+            }) || null;
+        }
+
+        function upsertAgentBookmark(site) {
+            const bookmarks = getBookmarks();
+            const targetDomain = extractDomain(site.url);
+            const existing = bookmarks.find(bookmark => extractDomain(bookmark.url) === targetDomain);
+            if (existing) {
+                existing.title = existing.title || site.title;
+                saveBookmarks(bookmarks);
+                renderBookmarkDropdown();
+                return { bookmark: existing, created: false };
+            }
+            const bookmark = { url: site.url, title: site.title, addedAt: Date.now(), source: 'jobflow-agent' };
+            bookmarks.unshift(bookmark);
+            saveBookmarks(bookmarks);
+            renderBookmarkDropdown();
+            return { bookmark, created: true };
+        }
+
+        function extractWebsiteName(text) {
+            return text
+                .replace(/^(请|帮我|麻烦|能不能|可以|把|将|给我|我要|我想|一下|下)+/g, '')
+                .replace(/(收藏|保存|添加|加入)(到)?(我的)?(书签|收藏夹)?/g, '')
+                .replace(/(网站|官网|网页|链接|到我的书签|到书签|到收藏夹|一下|下|吧|呀|呢)/g, '')
+                .replace(/[，,。.!！?？“”"'\s]/g, '')
+                .trim();
+        }
+
+        async function discoverOfficialWebsite(query) {
+            const known = resolveKnownWebsite(query);
+            if (known) return known;
+            if (typeof ipcRenderer === 'undefined') return null;
+            try {
+                const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(`${query} 官网`)}`;
+                const result = await ipcRenderer.invoke('universal-fetch-text', searchUrl);
+                if (!result?.ok || !result.text) return null;
+                const documentFromSearch = new DOMParser().parseFromString(result.text, 'text/html');
+                const queryCompact = agentCompactText(query);
+                const candidates = [...documentFromSearch.querySelectorAll('li.b_algo h2 a, h2 a')]
+                    .map(anchor => ({ title: anchor.textContent.trim(), url: anchor.href }))
+                    .filter(candidate => /^https?:\/\//i.test(candidate.url) && !/bing\.com|microsoft\.com\/search/i.test(candidate.url));
+                const official = candidates.find(candidate => agentCompactText(candidate.title).includes(queryCompact));
+                return official ? { title: official.title.replace(/\s*-.*$/, '').trim() || query, url: official.url, aliases: [query] } : null;
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function extractJobTarget(text) {
+            const role = (text.match(/(前端|后端|全栈|产品经理|产品|UI|UX|视觉设计|运营|数据分析|测试|算法|人工智能|AI|Java|Python|Android|iOS|嵌入式|游戏|市场|销售|人力|财务)/i) || [])[0] || '目标岗位';
+            const cities = ['北京', '上海', '广州', '深圳', '杭州', '成都', '武汉', '南京', '苏州', '西安', '厦门', '长沙'];
+            const location = cities.find(city => text.includes(city)) || '你的目标城市';
+            const matchedDays = text.match(/(\d+)\s*天/);
+            const durationDays = matchedDays ? Math.min(30, Math.max(3, Number(matchedDays[1]))) : (text.includes('一周') || text.includes('7天') ? 7 : 7);
+            return { role, location, durationDays };
+        }
+
+        function createMissionTask(mission, text, dueAt) {
+            tasks.unshift({
+                id: Date.now() + Math.random(),
+                text,
+                completed: false,
+                createdAt: Date.now(),
+                targetTime: dueAt,
+                recurring: false,
+                alerted: false,
+                agentMissionId: mission.id,
+                agentCreated: true
+            });
+        }
+
+        function getAgentDueAt(hoursFromNow) {
+            return Date.now() + hoursFromNow * 60 * 60 * 1000;
+        }
+
+        function clearHandledAgentInput() {
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+        }
+
+        async function runJobSprint(text, showUserMessage = true) {
+            if (showUserMessage) appendAgentUserMessage(text);
+            clearHandledAgentInput();
+            const progress = appendAgentProgress('Agent 正在理解求职目标、编排今日行动…');
+            const target = extractJobTarget(text);
+            const mission = {
+                id: `mission_${Date.now()}`,
+                ...target,
+                startedAt: Date.now(),
+                portalCount: 0
+            };
+            const jobPortals = ['BOSS直聘', '牛客网', '拉勾招聘', '猎聘'];
+            const addedPortals = jobPortals.reduce((count, title) => count + (upsertAgentBookmark(resolveKnownWebsite(title)).created ? 1 : 0), 0);
+            mission.portalCount = jobPortals.length;
+            createMissionTask(mission, `【求职冲刺】提炼 ${target.role} 简历与项目亮点`, getAgentDueAt(1));
+            createMissionTask(mission, `【求职冲刺】在招聘入口筛选 10 个 ${target.location}${target.role} 岗位`, getAgentDueAt(3));
+            createMissionTask(mission, `【求职冲刺】记录 3 个岗位的 JD 关键词并完成首轮投递`, getAgentDueAt(6));
+            saveJobMission(mission);
+            saveAndRender();
+            progress.remove();
+            renderAgentMissionPanel();
+            appendAgentExecutionCard({
+                title: `${target.durationDays} 天 ${target.role} 求职冲刺已部署`,
+                goal: `目标：在 ${target.location} 取得 ${target.role} 机会。Agent 把模糊愿望变成了今天可执行的工作流。`,
+                steps: [
+                    { title: '理解目标', detail: `识别岗位「${target.role}」、城市「${target.location}」、周期 ${target.durationDays} 天` },
+                    { title: '准备招聘入口', detail: `${addedPortals ? `新增 ${addedPortals} 个` : '复用已有'}招聘网站书签：${jobPortals.join('、')}` },
+                    { title: '编排行动计划', detail: '已创建 3 个带时间的首日任务，并同步至桌面待办' },
+                    { title: '保留执行上下文', detail: '任务舱会持续显示冲刺进度，完成任务后自动更新' }
+                ],
+                actions: [{ label: '打开 BOSS 开始筛选', onClick: () => {
+                    const portal = findAgentBookmark('BOSS直聘') || resolveKnownWebsite('BOSS直聘');
+                    if (portal) openBookmarkUrl(portal.url);
+                } }]
+            });
+            return true;
+        }
+
+        async function collectWebsiteWithAgent(text) {
+            appendAgentUserMessage(text);
+            clearHandledAgentInput();
+            const websiteName = extractWebsiteName(text);
+            if (!websiteName) {
+                appendAgentExecutionCard({ title: '需要一个网站名称', goal: '试试输入“收藏哔哩哔哩网站”或“收藏 BOSS直聘”。', steps: [{ title: '等待网站目标', detail: 'Agent 不会把不明确的请求写入收藏夹' }] });
+                return true;
+            }
+            const progress = appendAgentProgress(`正在检索并校验「${websiteName}」的官网…`);
+            const site = await discoverOfficialWebsite(websiteName);
+            progress.remove();
+            if (!site) {
+                appendAgentExecutionCard({
+                    title: `暂未能可靠确认「${websiteName}」官网`,
+                    goal: '为了避免把仿冒站加入你的收藏，Agent 暂停自动写入。',
+                    steps: [
+                        { title: '执行官网检索', detail: '未获得可验证的首选结果' },
+                        { title: '触发安全策略', detail: '不猜测网址，不自动收藏可疑链接' }
+                    ],
+                    actions: [{ label: '在浏览器搜索官网', onClick: () => shell.openExternal(`https://www.bing.com/search?q=${encodeURIComponent(`${websiteName} 官网`)}`) }]
+                });
+                return true;
+            }
+            const outcome = upsertAgentBookmark(site);
+            renderAgentMissionPanel();
+            appendAgentExecutionCard({
+                title: outcome.created ? `已收藏「${site.title}」` : `「${site.title}」已在收藏中`,
+                goal: `Agent 已确认入口：${site.url}`,
+                steps: [
+                    { title: '理解实体名称', detail: `从自然语言提取「${websiteName}」` },
+                    { title: '识别并校验官网', detail: site.url },
+                    { title: outcome.created ? '写入应用书签' : '执行去重检查', detail: outcome.created ? '已同步到顶部书签导航' : '没有重复写入数据' }
+                ],
+                actions: [{ label: '立即打开', onClick: () => openBookmarkUrl(site.url) }]
+            });
+            return true;
+        }
+
+        function openWebsiteWithAgent(text) {
+            appendAgentUserMessage(text);
+            clearHandledAgentInput();
+            const query = text.replace(/^(请|帮我|麻烦|能不能|可以|我要|我想|给我|直接|一下|下)+/g, '')
+                .replace(/(打开|进入|访问|去|我的|收藏夹|收藏|书签|网站|官网|链接|一下|下|吧|呀|呢)/g, '').replace(/[，,。.!！?？“”"'\s]/g, '').trim();
+            const bookmark = findAgentBookmark(query) || resolveKnownWebsite(query);
+            if (!bookmark) {
+                appendAgentExecutionCard({ title: `未找到「${query || '该网站'}」`, goal: '你可以先说“收藏某网站”，Agent 会识别官网后保存。', steps: [{ title: '检索应用书签', detail: '没有找到同名入口' }] });
+                return true;
+            }
+            openBookmarkUrl(bookmark.url);
+            appendAgentExecutionCard({
+                title: `已打开「${bookmark.title || extractDomain(bookmark.url)}」`,
+                goal: '这是低风险的已明确操作，Agent 已直接调用系统默认浏览器。',
+                steps: [
+                    { title: '检索收藏与可信网站目录', detail: bookmark.url },
+                    { title: '调用 open_bookmark 工具', detail: '已交给系统默认浏览器打开' }
+                ]
+            });
+            return true;
+        }
+
+        function createReminderWithAgent(text) {
+            appendAgentUserMessage(text);
+            clearHandledAgentInput();
+            const taskText = text.replace(/^(请|帮我|麻烦|能不能|可以|我要|我想|给我)+/g, '').replace(/提醒我|给我提醒|帮我提醒/g, '').trim();
+            const parsed = parseTaskTime(taskText);
+            const task = { id: Date.now() + Math.random(), text: taskText, completed: false, createdAt: Date.now(), targetTime: parsed.targetTime, recurring: parsed.isRecurring, alerted: false, agentCreated: true };
+            tasks.unshift(task);
+            saveAndRender();
+            appendAgentExecutionCard({
+                title: '提醒已加入桌面待办',
+                goal: task.targetTime ? `将在 ${formatAgentTime(task.targetTime)} 提醒你。` : '未识别到具体时间，已作为普通待办保存。',
+                steps: [
+                    { title: '提取行动', detail: task.text },
+                    { title: '解析时间表达', detail: task.targetTime ? formatAgentTime(task.targetTime) : '没有指定时间' },
+                    { title: '调用 create_task 工具', detail: '已同步到你的桌面待办' }
+                ]
+            });
+            renderAgentMissionPanel();
+            return true;
+        }
+
+        // ==================== File Scout Agent：文件搜索·打开·索引 ====================
+        function getFileAgentIcon(ext, type) {
+            if (type === 'folder') return { icon: 'ph-folder', color: '#fbbf24' };
+            const iconMap = {
+                pdf:  { icon: 'ph-file-pdf',  color: '#f87171' },
+                doc:  { icon: 'ph-file-doc',  color: '#60a5fa' },
+                docx: { icon: 'ph-file-doc',  color: '#60a5fa' },
+                xls:  { icon: 'ph-file-xls',  color: '#4ade80' },
+                xlsx: { icon: 'ph-file-xls',  color: '#4ade80' },
+                csv:  { icon: 'ph-file-csv',  color: '#4ade80' },
+                ppt:  { icon: 'ph-file-ppt',  color: '#fb923c' },
+                pptx: { icon: 'ph-file-ppt',  color: '#fb923c' },
+                txt:  { icon: 'ph-file-text', color: '#fbbf24' },
+                md:   { icon: 'ph-file-text', color: '#fbbf24' },
+                jpg:  { icon: 'ph-file-image', color: '#c084fc' },
+                jpeg: { icon: 'ph-file-image', color: '#c084fc' },
+                png:  { icon: 'ph-file-image', color: '#c084fc' },
+                gif:  { icon: 'ph-file-image', color: '#c084fc' },
+                webp: { icon: 'ph-file-image', color: '#c084fc' },
+                svg:  { icon: 'ph-file-image', color: '#c084fc' },
+                bmp:  { icon: 'ph-file-image', color: '#c084fc' },
+                mp3:  { icon: 'ph-file-audio', color: '#f472b6' },
+                wav:  { icon: 'ph-file-audio', color: '#f472b6' },
+                flac: { icon: 'ph-file-audio', color: '#f472b6' },
+                aac:  { icon: 'ph-file-audio', color: '#f472b6' },
+                ogg:  { icon: 'ph-file-audio', color: '#f472b6' },
+                wma:  { icon: 'ph-file-audio', color: '#f472b6' },
+                mp4:  { icon: 'ph-file-video', color: '#38bdf8' },
+                avi:  { icon: 'ph-file-video', color: '#38bdf8' },
+                mkv:  { icon: 'ph-file-video', color: '#38bdf8' },
+                mov:  { icon: 'ph-file-video', color: '#38bdf8' },
+                wmv:  { icon: 'ph-file-video', color: '#38bdf8' },
+                flv:  { icon: 'ph-file-video', color: '#38bdf8' },
+                zip:  { icon: 'ph-file-zip',  color: '#a3a3a3' },
+                rar:  { icon: 'ph-file-zip',  color: '#a3a3a3' },
+                '7z': { icon: 'ph-file-zip',  color: '#a3a3a3' },
+                tar:  { icon: 'ph-file-zip',  color: '#a3a3a3' },
+                gz:   { icon: 'ph-file-zip',  color: '#a3a3a3' },
+                js:   { icon: 'ph-file-code', color: '#facc15' },
+                ts:   { icon: 'ph-file-code', color: '#facc15' },
+                py:   { icon: 'ph-file-code', color: '#facc15' },
+                html: { icon: 'ph-file-code', color: '#facc15' },
+                css:  { icon: 'ph-file-code', color: '#facc15' },
+                json: { icon: 'ph-file-text', color: '#86efac' },
+                xml:  { icon: 'ph-file-text', color: '#86efac' },
+                yaml: { icon: 'ph-file-text', color: '#86efac' },
+                yml:  { icon: 'ph-file-text', color: '#86efac' },
+                toml: { icon: 'ph-file-text', color: '#86efac' },
+                exe:  { icon: 'ph-file',      color: '#94a3b8' },
+                msi:  { icon: 'ph-file',      color: '#94a3b8' }
+            };
+            return iconMap[ext] || { icon: 'ph-file', color: '#94a3b8' };
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes || bytes <= 0) return '';
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+            if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
+            return `${(bytes / 1073741824).toFixed(1)} GB`;
+        }
+
+        function truncateFilePath(filePath, maxLen) {
+            maxLen = maxLen || 56;
+            var fp = String(filePath || '');
+            if (fp.length <= maxLen) return fp;
+            return '\u2026' + fp.slice(-(maxLen - 1));
+        }
+
+        function renderFileResultCard(results, query, goalText, isOpenMode) {
+            if (!results || results.length === 0) {
+                appendAgentExecutionCard({
+                    title: '未找到匹配文件',
+                    goal: '没有找到与「' + escapeAgentHtml(query) + '」相关的文件。试试换个关键词。',
+                    steps: [{ title: '搜索范围', detail: '桌面 · 文档 · 下载 · 图片 · 音乐 · 视频（共 ' + (localFileIndexState.total || 0) + ' 个文件）' }],
+                    actions: [{ label: '↻ 刷新索引', onClick: function() { refreshFileIndex(); } }]
+                });
+                return;
+            }
+
+            var card = document.createElement('section');
+            card.className = 'agent-execution-card';
+
+            var hintText = isOpenMode && results.length === 1
+                ? '已自动打开该文件。如果未弹出，请点击下方按钮手动打开。'
+                : isOpenMode
+                    ? '找到 ' + results.length + ' 个相关文件，请选择要打开的文件。'
+                    : '找到 ' + results.length + ' 个相关文件，点击可打开。';
+
+            card.innerHTML = '<div class="agent-card-top">'
+                + '<div class="agent-orb"><i class="ph-fill ph-magnifying-glass"></i></div>'
+                + '<div><div class="agent-card-kicker">FILE SCOUT · 搜索结果</div>'
+                + '<div class="agent-card-title">' + escapeAgentHtml(goalText) + '</div></div></div>'
+                + '<div class="agent-card-goal">' + hintText + '</div>'
+                + '<div class="agent-file-results"></div>';
+
+            chatMessages.appendChild(card);
+            scrollAgentChat();
+
+            var wrap = card.querySelector('.agent-file-results');
+            for (var i = 0; i < results.length; i++) {
+                var entry = results[i];
+                var filePath = String(entry.path || '');
+                var fileName = String(entry.name || '');
+                var fileExt = String(entry.ext || '');
+                var fileType = String(entry.type || '');
+                var fileSize = entry.size ? formatFileSize(entry.size) : '';
+                var iconInfo = getFileAgentIcon(fileExt, fileType);
+
+                // 构建行 DOM
+                var row = document.createElement('div');
+                row.className = 'agent-file-row';
+                row.setAttribute('data-file-path', filePath);
+
+                var iconDiv = document.createElement('div');
+                iconDiv.className = 'agent-file-icon';
+                var iconI = document.createElement('i');
+                iconI.className = 'ph-fill ' + iconInfo.icon;
+                iconI.style.color = iconInfo.color;
+                iconI.style.fontSize = '15px';
+                iconDiv.appendChild(iconI);
+
+                var infoDiv = document.createElement('div');
+                infoDiv.className = 'agent-file-info';
+
+                var nameDiv = document.createElement('div');
+                nameDiv.className = 'agent-file-name';
+                nameDiv.textContent = fileName;
+                if (i === 0) {
+                    var badge = document.createElement('span');
+                    badge.className = 'agent-file-score-badge';
+                    badge.textContent = '最佳匹配';
+                    nameDiv.appendChild(badge);
+                }
+
+                var pathDiv = document.createElement('div');
+                pathDiv.className = 'agent-file-path';
+                pathDiv.textContent = truncateFilePath(filePath) + (fileSize ? ' · ' + fileSize : '');
+
+                infoDiv.appendChild(nameDiv);
+                infoDiv.appendChild(pathDiv);
+
+                var btnsDiv = document.createElement('div');
+                btnsDiv.className = 'agent-file-buttons';
+
+                var openBtn = document.createElement('button');
+                openBtn.className = 'agent-file-button';
+                openBtn.textContent = '打开';
+                openBtn.setAttribute('data-open', filePath);
+
+                var revealBtn = document.createElement('button');
+                revealBtn.className = 'agent-file-button secondary';
+                revealBtn.textContent = '📂';
+                revealBtn.setAttribute('data-reveal', filePath);
+
+                btnsDiv.appendChild(openBtn);
+                btnsDiv.appendChild(revealBtn);
+
+                row.appendChild(iconDiv);
+                row.appendChild(infoDiv);
+                row.appendChild(btnsDiv);
+
+                // 绑定事件
+                (function(fp) {
+                    openBtn.addEventListener('click', function(e) { e.stopPropagation(); openLocalFile(fp); });
+                    revealBtn.addEventListener('click', function(e) { e.stopPropagation(); revealLocalFile(fp); });
+                    row.addEventListener('click', function() { openLocalFile(fp); });
+                })(filePath);
+
+                wrap.appendChild(row);
+            }
+
+            return card;
+        }
+
+        async function openLocalFile(filePath) {
+            try {
+                const result = await ipcRenderer.invoke('agent-open-local-file', filePath);
+                if (result.ok) {
+                    appendAgentProgress('已用系统默认程序打开：' + path.basename(filePath));
+                } else {
+                    appendAgentProgress('打开失败：' + (result.error || '未知错误'));
+                }
+            } catch (e) {
+                appendAgentProgress('打开文件异常：' + e.message);
+            }
+        }
+
+        async function revealLocalFile(filePath) {
+            try {
+                const result = await ipcRenderer.invoke('agent-reveal-local-file', filePath);
+                if (!result.ok) {
+                    appendAgentProgress('无法定位文件：' + (result.error || '未知错误'));
+                }
+            } catch (e) {
+                appendAgentProgress('定位文件异常：' + e.message);
+            }
+        }
+
+        let localFileIndexState = { ready: false, total: 0, roots: [] };
+
+        async function refreshFileIndex() {
+            try {
+                const progress = appendAgentProgress('正在重建本地文件索引…');
+                const result = await ipcRenderer.invoke('agent-refresh-local-file-index');
+                if (progress && progress.parentNode) progress.remove();
+                if (result.ok) {
+                    localFileIndexState = result.state || {};
+                    appendAgentExecutionCard({
+                        title: '索引已刷新',
+                        goal: '已索引 ' + (localFileIndexState.total || 0) + ' 个文件（桌面 · 文档 · 下载 · 图片 · 音乐 · 视频）。',
+                        steps: [{ title: '索引完成', detail: '现在可以搜索文件了' }]
+                    });
+                } else {
+                    appendAgentExecutionCard({
+                        title: '索引刷新失败',
+                        goal: result.error || '未知错误',
+                        steps: [{ title: '请稍后重试', detail: '可能是权限或磁盘问题' }]
+                    });
+                }
+                renderFileAgentPanel();
+            } catch (e) {
+                appendAgentProgress('刷新索引异常：' + e.message);
+            }
+        }
+
+        async function renderFileAgentPanel() {
+            const panel = document.getElementById('agentMissionPanel');
+            if (!panel) return;
+            try {
+                const status = await ipcRenderer.invoke('agent-file-index-status');
+                localFileIndexState = status || {};
+            } catch (e) {
+                localFileIndexState = { ready: false, total: 0, roots: [] };
+            }
+
+            const { ready, indexing, total, roots } = localFileIndexState;
+            if (indexing) {
+                panel.innerHTML = `
+                    <div class="agent-kicker"><i class="ph-fill ph-spinner ph-spin"></i> FILE SCOUT · 索引中</div>
+                    <div class="agent-mission-title">正在扫描桌面、文档、下载、图片、音乐、视频…</div>
+                    <div class="agent-mission-copy">首次索引几秒即可完成，请稍候。</div>`;
+                return;
+            }
+            if (!ready || total === 0) {
+                panel.innerHTML = `
+                    <div class="agent-kicker"><i class="ph-fill ph-hard-drives"></i> FILE SCOUT · 就绪</div>
+                    <div class="agent-mission-title">本地文件搜索引擎</div>
+                    <div class="agent-mission-copy">覆盖桌面、文档、下载、图片、音乐、视频。首次搜索时自动构建索引。</div>
+                    <div class="agent-mission-meta"><span class="agent-meta-pill">范围 <strong>桌面 · 文档 · 下载 · 图片 · 音乐 · 视频</strong></span><button class="agent-mission-action" data-file-refresh>立即建立索引</button></div>`;
+                panel.querySelector('[data-file-refresh]')?.addEventListener('click', refreshFileIndex);
+                return;
+            }
+            const rootsDisplay = (roots || []).map(r => path.basename(r)).join(' · ');
+            panel.innerHTML = `
+                <div class="agent-kicker"><i class="ph-fill ph-hard-drives"></i> FILE SCOUT · 在线</div>
+                <div class="agent-mission-title">已索引 <strong style="color:#86efac;">${total}</strong> 个文件</div>
+                <div class="agent-mission-copy">覆盖范围：${rootsDisplay || '桌面 · 文档 · 下载 · 图片 · 音乐 · 视频'}</div>
+                <div class="agent-mission-meta">
+                    <span class="agent-meta-pill">搜索范围 <strong>${rootsDisplay || '桌面 · 文档 · 下载 · 图片 · 音乐 · 视频'}</strong></span>
+                    <button class="agent-mission-action" data-file-refresh>↻ 刷新索引</button>
+                </div>`;
+            panel.querySelector('[data-file-refresh]')?.addEventListener('click', refreshFileIndex);
+        }
+
+        async function handleFileAgentCommand(text) {
+            const t = text.trim();
+
+            // 刷新索引
+            if (/^(刷新|重建|重新).{0,4}(索引|文件索引|文件列表|本地索引)/.test(t) ||
+                /^(更新|重新扫描).{0,4}(文件|索引)/.test(t)) {
+                clearHandledAgentInput();
+                appendAgentUserMessage(t);
+                await refreshFileIndex();
+                return true;
+            }
+
+            // 查找并打开文件
+            const openMatch = t.match(/(?:查找并打开|帮我查找并打开|搜索并打开|帮我搜索并打开|找一下并打开|帮我找一下并打开|查找打开|搜索打开|打开|帮我打开)\s*[：:]*\s*(.+)/i);
+            if (openMatch) {
+                const query = openMatch[1].replace(/[，。、\s]+$/, '').trim();
+                if (!query) return false;
+                clearHandledAgentInput();
+                appendAgentUserMessage(t);
+                const progress = appendAgentProgress('正在搜索「' + escapeAgentHtml(query) + '」…');
+                try {
+                    const result = await ipcRenderer.invoke('agent-search-local-files', query);
+                    if (progress && progress.parentNode) progress.remove();
+                    if (!result.ok) {
+                        appendAgentExecutionCard({
+                            title: '搜索失败',
+                            goal: result.error || '未知错误',
+                            steps: [{ title: '请重试', detail: '或检查索引状态' }]
+                        });
+                        return true;
+                    }
+                    const results = result.results || [];
+                    const isOpenMode = true;
+                    lastFileSearchResults = results; // 供“把搜索结果整理成 Excel”使用
+                    renderFileResultCard(results, query, '查找并打开「' + query + '」', true);
+
+                    // 如果只有一个结果，自动打开
+                    if (results.length === 1) {
+                        await openLocalFile(results[0].path);
+                    }
+                    return true;
+                } catch (e) {
+                    if (progress && progress.parentNode) progress.remove();
+                    appendAgentProgress('搜索异常：' + e.message);
+                    return true;
+                }
+            }
+
+            // 查找文件（不自动打开）
+            const searchMatch = t.match(/(?:查找|搜索|帮我找|帮我查找|帮我搜索|找一下|帮我找一下|搜一下|找找)\s*[：:]*\s*(.+)/i);
+            if (searchMatch) {
+                const query = searchMatch[1].replace(/[，。、\s]+$/, '').trim();
+                if (!query) return false;
+                clearHandledAgentInput();
+                appendAgentUserMessage(t);
+                const progress = appendAgentProgress('正在搜索「' + escapeAgentHtml(query) + '」…');
+                try {
+                    const result = await ipcRenderer.invoke('agent-search-local-files', query);
+                    if (progress && progress.parentNode) progress.remove();
+                    if (!result.ok) {
+                        appendAgentExecutionCard({
+                            title: '搜索失败',
+                            goal: result.error || '未知错误',
+                            steps: [{ title: '请重试', detail: '或检查索引状态' }]
+                        });
+                        return true;
+                    }
+                    lastFileSearchResults = result.results || []; // 供“把搜索结果整理成 Excel”使用
+                    renderFileResultCard(result.results || [], query, '搜索「' + query + '」', false);
+                    return true;
+                } catch (e) {
+                    if (progress && progress.parentNode) progress.remove();
+                    appendAgentProgress('搜索异常：' + e.message);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        // ==================== File Scout Agent 结束 ====================
+
+        // ==================== 桌面全能知识 Agent：意图识别 + ReAct 工具调用 ====================
+        // 只在这里挂载 IPC，不新增任何 UI 面板；Agent 决策/工具都在 main.js 侧的
+        // agent_core.js（决策引擎）与 agent_tools.js（工具库）里独立实现。
+        // 场景：① 粘贴 URL + “总结/提炼/导出”→ 抓取并生成 Markdown 简报存桌面
+        //       ② “把搜索结果整理成 Excel”→ 把最近一次文件检索结果导出为 CSV/Excel
+        let lastFileSearchResults = [];
+
+        async function handleDesktopAgentCommand(text) {
+            const t = String(text || '').trim();
+            const lowerT = t.toLowerCase();
+            const hasUrl = /https?:\/\/[^\s，。、;；'"<>]+/i.test(t);
+            const exportVerb = /(总结|简报|提炼|摘要|汇总|整理|导出|下载|保存|存到|做成|生成|word|pdf|markdown|md)/i.test(t);
+            const excelIntent = /(excel|表格|xlsx|csv|电子表格|梳理成表|做成表格|转成表格)/i.test(lowerT) ||
+                                /整理成\s*excel/i.test(lowerT) || /弄成|换成|导出成/.test(t);
+
+            // 网页提炼/导出 → 交给出桌 Agent；本地文件搜索仍由 File Scout 负责
+            const isUrlExport = hasUrl && (exportVerb || excelIntent);
+            const isExcel = excelIntent && !isUrlExport;
+            if (!isUrlExport && !isExcel) return false;
+
+            appendAgentUserMessage(t);
+            clearHandledAgentInput();
+
+            // 为 Excel 导出准备数据：把最近一次文件检索结果转成表格行
+            const context = {};
+            if (isExcel) {
+                const files = (lastFileSearchResults || []).filter(r => r && r.type === 'file');
+                context.items = files.map(r => ({
+                    文件名: r.name || '',
+                    位置: r.path || '',
+                    大小: r.size != null ? (r.size / 1024).toFixed(1) + ' KB' : '',
+                    修改时间: r.modifiedAt ? new Date(r.modifiedAt).toLocaleString('zh-CN', { hour12: false }) : ''
+                }));
+                context.filename = '文件检索结果_' + new Date().toISOString().slice(0, 10);
+                if (!files.length) {
+                    context.items = [];
+                    context.note = '提示：先搜出文件（如“搜索 发票 文件”），再对我说“把搜索结果整理成 Excel”。';
+                }
+            }
+
+            const progress = appendAgentProgress('桌面 Agent 正在推理并执行…');
+            const onProgress = (evt, status) => {
+                if (!status) return;
+                const label = status.kind === 'thinking'
+                    ? (status.text || '…')
+                    : (status.detail || status.title || '');
+                if (label && progress && progress.parentNode) {
+                    const span = progress.querySelector('span');
+                    if (span) span.textContent = label;
+                }
+            };
+            ipcRenderer.on('agent:progress', onProgress);
+            const cleanup = () => { if (progress && progress.parentNode) progress.remove(); };
+
+            try {
+                const result = await ipcRenderer.invoke('agent:run-task', {
+                    prompt: t,
+                    history: chatHistory.slice(-6),
+                    context
+                });
+                ipcRenderer.removeListener('agent:progress', onProgress);
+                cleanup();
+
+                if (!result || !result.ok) {
+                    const errDiv = document.createElement('div');
+                    errDiv.className = 'message ai-message';
+                    errDiv.style.color = '#fbbf24';
+                    errDiv.innerHTML = '<i class="ph-bold ph-warning-circle"></i> 桌面 Agent 执行失败：' + escapeAgentHtml((result && result.error) || '未知错误');
+                    chatMessages.appendChild(errDiv);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    return true;
+                }
+
+                if (result.handled) {
+                    // ★ ReAct 思考轨迹：以一张“执行轨迹”卡片优雅呈现 🔍→📄→✅
+                    if (result.steps && result.steps.length) {
+                        appendAgentExecutionCard({
+                            title: '桌面 Agent · 执行轨迹',
+                            goal: t,
+                            steps: result.steps,
+                            actions: (result.artifacts || []).map(a => ({
+                                label: a.type === 'csv' ? '打开表格' : '定位文件',
+                                onClick: () => shell.openPath(a.filePath)
+                            }))
+                        });
+                    }
+                    const aiDiv = document.createElement('div');
+                    aiDiv.className = 'message ai-message';
+                    aiDiv.style.whiteSpace = 'pre-wrap';
+                    aiDiv.textContent = result.finalText || '任务已完成。';
+                    chatMessages.appendChild(aiDiv);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    return true;
+                }
+                return false; // 未命中工具意图，交给后续云端 AI 走普通对话
+            } catch (err) {
+                ipcRenderer.removeListener('agent:progress', onProgress);
+                cleanup();
+                appendAgentProgress('桌面 Agent 异常：' + (err && err.message ? err.message : err));
+                return true;
+            }
+        }
+        // ==================== 桌面全能知识 Agent 结束 ====================
+
+        async function handleAgentCommand(text) {
+            if (await handleFileAgentCommand(text)) return true;
+            if (await handleDesktopAgentCommand(text)) return true;
+            return false;
+        }
+
+        document.getElementById('agentQuickPrompts')?.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-agent-prompt]');
+            if (!button) return;
+            chatInput.value = button.dataset.agentPrompt || '';
+            sendAiMessage();
+        });
+        // ==================== 旧快捷工具逻辑结束 ====================
 
         aiChatBtn.addEventListener('click', () => {
             ['galleryModal', 'historyModal', 'noteArchiveModal', 'learningCenterModal', 'nhkNewsModal'].forEach(id => {
@@ -5809,10 +6733,11 @@
             if (typeof radioContainer !== 'undefined' && radioContainer) radioContainer.classList.remove('show');
             if (typeof radioToggleBtn !== 'undefined' && radioToggleBtn) radioToggleBtn.classList.remove('radio-active');
             
-            document.querySelector('#aiModal .gallery-header span').textContent = '云端 AI (上下文记忆中)';
+            document.getElementById('aiAgentTitle').textContent = 'File Scout Agent · 在线';
             aiModal.classList.add('show');
             updateAiApiKeyUI();
             updateAiWelcomeMessage();
+            renderFileAgentPanel();
             if (typeof flipContainer !== 'undefined' && flipContainer) flipContainer.classList.add('hide-flipper');
             setTimeout(() => chatInput.focus(), 200);
         });
@@ -5918,6 +6843,9 @@
         async function sendAiMessage() {
             const text = chatInput.value.trim();
             if (!text && currentImagesArray.length === 0) return;
+
+            // 先让 Agent 尝试处理可执行目标；已处理时不消耗云端 Token。
+            if (await handleAgentCommand(text)) return;
 
             // 🔑 从本地存储读取 API Key
             const API_KEY = getAiApiKey();
